@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Sulit Mahjong</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Literata:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wood-deep:#5A3327;
+  --wood-mid:#7A4A35;
+  --wood-light:#9C6B47;
+  --cream:#F6EFE3;
+  --cream-dim:#E8DCC6;
+  --ink:#2B2438;
+  --night:#241F30;
+  --night-2:#332B45;
+  --gold:#D9A24B;
+  --gold-bright:#F0C674;
+  --jade:#5C7A5E;
+  --jade-bright:#7FA37F;
+  --ember:#B5482F;
+  --ember-bright:#D8633F;
+  --paper:#FBF6EC;
+  --shadow:0 6px 18px rgba(20,14,8,0.45);
+  --radius:14px;
+  font-size:16px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Literata',serif;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(217,162,75,0.18), transparent 55%),
+    linear-gradient(180deg, var(--night) 0%, var(--night-2) 55%, #1c1726 100%);
+  color:var(--cream);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+h1,h2,h3,.display{font-family:'Baloo 2',cursive,sans-serif;}
+button{font-family:'Baloo 2',cursive,sans-serif;cursor:pointer;border:none;}
+#app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative;}
+
+/* ---------- lantern string ---------- */
+.lanterns{display:flex;justify-content:space-around;padding:10px 18px 0;pointer-events:none;user-select:none;}
+.lantern{width:20px;height:26px;border-radius:8px 8px 10px 10px;
+  background:radial-gradient(circle at 50% 35%, var(--gold-bright), var(--gold) 60%, var(--ember) 130%);
+  box-shadow:0 0 14px 4px rgba(240,198,116,0.55);
+  animation:sway 3.4s ease-in-out infinite;
+  transform-origin:top center;
+}
+.lantern:nth-child(odd){animation-delay:-1.2s;}
+.lantern:nth-child(3n){animation-delay:-2s;}
+@keyframes sway{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+
+/* ---------- generic layout ---------- */
+.screen{flex:1;display:flex;flex-direction:column;padding:14px 16px 22px;animation:fadeIn .35s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.card{background:linear-gradient(180deg, rgba(251,246,236,0.06), rgba(251,246,236,0.02));
+  border:1px solid rgba(217,162,75,0.25); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+.title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+h1.brand{font-size:1.9rem;margin:6px 0 2px;color:var(--gold-bright);text-shadow:0 2px 10px rgba(0,0,0,0.4);letter-spacing:.5px;}
+.subtitle{color:var(--cream-dim);opacity:.85;font-size:.92rem;margin:0 0 18px;}
+label{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);display:block;margin-bottom:6px;}
+input[type=text]{
+  width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(217,162,75,0.4);
+  background:rgba(0,0,0,0.18);color:var(--cream);font-family:'Literata',serif;font-size:1rem;
+}
+input[type=text]:focus{outline:2px solid var(--gold);}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:12px 18px;border-radius:12px;font-weight:700;font-size:1rem;letter-spacing:.02em;
+  background:linear-gradient(180deg, var(--gold-bright), var(--gold));color:#3a2510;
+  box-shadow:0 4px 0 #8a661f, 0 6px 14px rgba(0,0,0,0.35);
+  transition:transform .08s ease;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8a661f;}
+.btn.secondary{background:linear-gradient(180deg, rgba(251,246,236,0.16), rgba(251,246,236,0.06));
+  color:var(--cream);box-shadow:0 4px 0 rgba(0,0,0,0.3), 0 6px 14px rgba(0,0,0,0.3);}
+.btn.ember{background:linear-gradient(180deg, var(--ember-bright), var(--ember));color:#2a0e06;
+  box-shadow:0 4px 0 #6e2415,0 6px 14px rgba(0,0,0,0.35);}
+.btn.jade{background:linear-gradient(180deg, var(--jade-bright), var(--jade));color:#10220f;
+  box-shadow:0 4px 0 #2c3f2c,0 6px 14px rgba(0,0,0,0.35);}
+.btn:disabled{opacity:.4;filter:grayscale(.4);box-shadow:none;transform:none;cursor:default;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.pill{padding:4px 10px;border-radius:999px;background:rgba(217,162,75,0.18);border:1px solid rgba(217,162,75,.4);
+  font-size:.75rem;color:var(--gold-bright);font-weight:600;}
+.muted{color:var(--cream-dim);opacity:.75;font-size:.85rem;}
+.center{text-align:center;}
+.row{display:flex;align-items:center;gap:8px;}
+.spacer{flex:1;}
+.icon-btn{background:rgba(251,246,236,0.08);border:1px solid rgba(217,162,75,.3);border-radius:10px;
+  color:var(--cream);width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+
+/* ---------- seats / lobby ---------- */
+.seat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;}
+.seat-card{border:1px solid rgba(217,162,75,.3);border-radius:12px;padding:10px;background:rgba(0,0,0,0.15);
+  min-height:74px;display:flex;flex-direction:column;justify-content:center;gap:4px;position:relative;}
+.seat-card.mine{border-color:var(--gold-bright);box-shadow:0 0 0 1px var(--gold-bright) inset;}
+.seat-card.empty{opacity:.55;border-style:dashed;}
+.seat-name{font-weight:700;font-family:'Baloo 2';font-size:.95rem;}
+.seat-tag{font-size:.7rem;color:var(--gold);}
+.seat-wind{position:absolute;top:8px;right:10px;font-size:1.3rem;opacity:.85;}
+
+/* ---------- table ---------- */
+.table-wrap{position:relative;flex:1;display:flex;flex-direction:column;}
+.opponents-row{display:flex;justify-content:space-between;padding:4px 2px 8px;}
+.opp{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;}
+.opp .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 35% 30%, var(--wood-light), var(--wood-deep));
+  border:2px solid rgba(217,162,75,.5);font-family:'Baloo 2';font-weight:700;font-size:1.05rem;color:var(--gold-bright);}
+.opp.turn .avatar{box-shadow:0 0 0 3px var(--gold-bright),0 0 16px 4px rgba(240,198,116,.6);}
+.opp .nm{font-size:.72rem;color:var(--cream-dim);max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.opp .tilecount{display:flex;gap:2px;}
+.opp .backtile{width:7px;height:11px;border-radius:2px;background:linear-gradient(180deg,var(--wood-light),var(--wood-deep));border:1px solid rgba(0,0,0,.4);}
+.opp .meld-strip{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;max-width:90px;}
+
+.felt{
+  flex:1;border-radius:20px;position:relative;margin:6px 0 10px;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(240,198,116,0.16), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0 2px, transparent 2px 6px),
+    linear-gradient(160deg, var(--wood-mid), var(--wood-deep) 70%);
+  box-shadow:inset 0 0 40px rgba(0,0,0,.55), 0 8px 20px rgba(0,0,0,.4);
+  padding:14px 10px;min-height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.wall-info{position:absolute;top:8px;left:12px;font-size:.72rem;color:var(--cream-dim);background:rgba(0,0,0,.3);
+  padding:3px 8px;border-radius:999px;}
+.dealer-info{position:absolute;top:8px;right:12px;font-size:.72rem;color:var(--gold-bright);background:rgba(0,0,0,.3);
+  padding:3px 8px;border-radius:999px;}
+.discard-grid{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:380px;}
+.discard-grid .tile{transform:scale(.82);}
+.last-discard-ring{position:relative;}
+.last-discard-ring::after{content:'';position:absolute;inset:-4px;border-radius:8px;border:2px solid var(--gold-bright);
+  animation:pulse 1.1s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.9;}50%{opacity:.25;}}
+
+/* ---------- tiles ---------- */
+.tile{
+  width:30px;height:42px;border-radius:6px;flex:0 0 auto;
+  background:linear-gradient(180deg, var(--paper), var(--cream-dim));
+  border:1px solid rgba(70,45,20,.4);
+  box-shadow:0 2px 0 rgba(70,45,20,.5), 0 3px 6px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;font-size:1.25rem;color:var(--ink);
+  user-select:none; transition:transform .12s ease;
+}
+.tile.suit-C{color:#7a1f1f;}
+.tile.suit-B{color:#1f5c33;}
+.tile.suit-D{color:#1f3a6b;}
+.tile.honor{color:#8a5a12;}
+.tile.dragon-DR{color:#b5232f;}
+.tile.dragon-DG{color:#1f6b3a;}
+.tile.dragon-DW{color:#444;}
+.tile.joker{color:#8a3a9c;background:linear-gradient(180deg,#fff7e8,#f3dfb0);}
+.tile.back{
+  background:linear-gradient(150deg, var(--wood-light), var(--wood-deep));
+  border:1px solid rgba(0,0,0,.4);
+}
+.tile.big{width:38px;height:54px;font-size:1.6rem;}
+.tile.selected{transform:translateY(-10px);box-shadow:0 0 0 2px var(--gold-bright), 0 8px 14px rgba(0,0,0,.4);}
+.tile.passsel{transform:translateY(-10px);box-shadow:0 0 0 2px var(--ember-bright), 0 8px 14px rgba(0,0,0,.4);}
+.tile.clickable{cursor:pointer;}
+.tile.clickable:hover{transform:translateY(-4px);}
+.meld-tiles{display:flex;gap:2px;}
+.meld-tiles .tile{width:22px;height:30px;font-size:.95rem;}
+
+.hand-dock{background:rgba(0,0,0,0.22);border-top:1px solid rgba(217,162,75,.25);border-radius:16px 16px 0 0;
+  padding:10px 8px 6px;}
+.my-melds{display:flex;gap:8px;justify-content:center;margin-bottom:6px;min-height:0;flex-wrap:wrap;}
+.hand-row{display:flex;gap:4px;overflow-x:auto;padding:4px 2px 8px;justify-content:center;flex-wrap:wrap;}
+.action-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:4px 4px 2px;min-height:48px;}
+.turn-banner{text-align:center;font-size:.85rem;color:var(--gold-bright);margin-bottom:2px;min-height:18px;}
+
+/* ---------- modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(10,7,14,.72);display:flex;align-items:center;justify-content:center;
+  z-index:50;padding:18px;backdrop-filter:blur(2px);}
+.modal{position:relative;background:linear-gradient(180deg,#352b46,#241f30);border:1px solid rgba(217,162,75,.35);
+  border-radius:16px;padding:20px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);}
+.modal h2{color:var(--gold-bright);margin-top:0;}
+.close-x{position:absolute;top:10px;right:14px;background:none;color:var(--cream);font-size:1.4rem;}
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(20,16,26,.95);
+  border:1px solid var(--gold);color:var(--cream);padding:10px 16px;border-radius:10px;font-size:.85rem;
+  z-index:80;box-shadow:var(--shadow);max-width:90%;text-align:center;}
+.score-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.score-table th,.score-table td{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(217,162,75,.2);font-size:.9rem;}
+.score-table th{color:var(--gold);font-weight:600;}
+.bonus-tag{display:inline-block;background:rgba(127,163,127,.18);border:1px solid rgba(127,163,127,.5);
+  color:var(--jade-bright);font-size:.7rem;padding:1px 6px;border-radius:6px;margin-right:4px;margin-top:3px;}
+.howto-body h3{color:var(--gold-bright);margin-top:18px;margin-bottom:4px;}
+.howto-body p, .howto-body li{font-size:.88rem;color:var(--cream-dim);line-height:1.5;}
+.linkish{color:var(--gold-bright);text-decoration:underline;cursor:pointer;background:none;font-size:.85rem;}
+@media (max-width:380px){
+  .tile{width:26px;height:38px;font-size:1.1rem;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =====================================================================
+   SULIT MAHJONG — Filipino-style mahjong, playable online with friends.
+   All shared game state lives in window.storage (shared:true) under
+   the room code. Each browser/account also keeps a small personal
+   profile (shared:false) so refreshing the page keeps your seat.
+   NOTE: because there's no real backend, the full table state (incl.
+   everyone's hands) is technically readable via devtools by anyone
+   who opens this artifact — this trusts the people you share the
+   room code with, the same way a real card table trusts whoever is
+   sitting at it. Don't share your room code outside your group.
+   ===================================================================== */
+
+/* ---------------- core tile / deck logic ---------------- */
+const SUITS = ['C','B','D'];
+const WINDS = ['WE','WS','WW','WN'];
+const DRAGONS = ['DR','DG','DW'];
+const WIND_NAME = {WE:'East',WS:'South',WW:'West',WN:'North'};
+const DRAGON_NAME = {DR:'Red Dragon',DG:'Green Dragon',DW:'White Dragon'};
+const SUIT_NAME = {C:'Characters',B:'Bamboo',D:'Dots'};
+
+const GLYPH = {
+  C1:'\u{1F007}',C2:'\u{1F008}',C3:'\u{1F009}',C4:'\u{1F00A}',C5:'\u{1F00B}',
+  C6:'\u{1F00C}',C7:'\u{1F00D}',C8:'\u{1F00E}',C9:'\u{1F00F}',
+  B1:'\u{1F010}',B2:'\u{1F011}',B3:'\u{1F012}',B4:'\u{1F013}',B5:'\u{1F014}',
+  B6:'\u{1F015}',B7:'\u{1F016}',B8:'\u{1F017}',B9:'\u{1F018}',
+  D1:'\u{1F019}',D2:'\u{1F01A}',D3:'\u{1F01B}',D4:'\u{1F01C}',D5:'\u{1F01D}',
+  D6:'\u{1F01E}',D7:'\u{1F01F}',D8:'\u{1F020}',D9:'\u{1F021}',
+  WE:'\u{1F000}',WS:'\u{1F001}',WW:'\u{1F002}',WN:'\u{1F003}',
+  DR:'\u{1F004}',DG:'\u{1F005}',DW:'\u{1F006}',
+  JK:'\u{1F0CF}'
+};
+
+function buildDeck(){
+  const deck=[];
+  for(const s of SUITS) for(let r=1;r<=9;r++) for(let c=0;c<4;c++) deck.push(s+r);
+  for(const w of WINDS) for(let c=0;c<4;c++) deck.push(w);
+  for(const d of DRAGONS) for(let c=0;c<4;c++) deck.push(d);
+  for(let c=0;c<8;c++) deck.push('JK');
+  return deck;
+}
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function isJoker(t){return t==='JK';}
+function isHonor(t){return WINDS.includes(t)||DRAGONS.includes(t);}
+function isSuited(t){return !isJoker(t)&&!isHonor(t);}
+function suitOf(t){return isSuited(t)?t[0]:null;}
+function rankOf(t){return isSuited(t)?parseInt(t.slice(1),10):null;}
+function countTiles(tiles){const m={};for(const t of tiles)m[t]=(m[t]||0)+1;return m;}
+function tileLabel(t){
+  if(isJoker(t)) return 'Joker';
+  if(WINDS.includes(t)) return WIND_NAME[t]+' Wind';
+  if(DRAGONS.includes(t)) return DRAGON_NAME[t];
+  return SUIT_NAME[suitOf(t)]+' '+rankOf(t);
+}
+function sortHand(tiles){
+  const order=t=>{
+    if(isJoker(t))return [9,0];
+    if(WINDS.includes(t))return [7,WINDS.indexOf(t)];
+    if(DRAGONS.includes(t))return [8,DRAGONS.indexOf(t)];
+    return [SUITS.indexOf(suitOf(t)),rankOf(t)];
+  };
+  return tiles.slice().sort((a,b)=>{
+    const [oa,ra]=order(a),[ob,rb]=order(b);
+    return oa!==ob?oa-ob:ra-rb;
+  });
+}
+
+function canExtractMelds(counts,jokers,meldsNeeded){
+  if(meldsNeeded===0) return jokers===0 && Object.values(counts).every(c=>c===0);
+  const keys=Object.keys(counts).filter(k=>counts[k]>0).sort();
+  if(keys.length===0) return false;
+  const t=keys[0], have=counts[t];
+  for(let use=Math.min(have,3);use>=1;use--){
+    const need=3-use;
+    if(need<=jokers){
+      counts[t]-=use;
+      const ok=canExtractMelds(counts,jokers-need,meldsNeeded-1);
+      counts[t]+=use;
+      if(ok) return true;
+    }
+    if(use<3) break;
+  }
+  if(isSuited(t)){
+    const s=suitOf(t), r=rankOf(t);
+    if(r<=7){
+      const t2=s+(r+1), t3=s+(r+2);
+      const have2=counts[t2]||0, have3=counts[t3]||0;
+      let needJ=0;
+      if(have2<1) needJ+=1; if(have3<1) needJ+=1;
+      if(needJ<=jokers){
+        counts[t]-=1;
+        counts[t2]=(counts[t2]||0)-Math.min(1,have2);
+        counts[t3]=(counts[t3]||0)-Math.min(1,have3);
+        const ok=canExtractMelds(counts,jokers-needJ,meldsNeeded-1);
+        counts[t]+=1;
+        counts[t2]+=Math.min(1,have2);
+        counts[t3]+=Math.min(1,have3);
+        if(ok) return true;
+      }
+    }
+  }
+  return false;
+}
+function canExtractPungsOnly(counts,jokers,meldsNeeded){
+  if(meldsNeeded===0) return jokers===0 && Object.values(counts).every(c=>c===0);
+  const keys=Object.keys(counts).filter(k=>counts[k]>0).sort();
+  if(keys.length===0) return false;
+  const t=keys[0], have=counts[t], use=Math.min(have,3), need=3-use;
+  if(need<=jokers){
+    counts[t]-=use;
+    const ok=canExtractPungsOnly(counts,jokers-need,meldsNeeded-1);
+    counts[t]+=use;
+    if(ok) return true;
+  }
+  return false;
+}
+function isWinningShape(concealedTiles,exposedMeldCount){
+  const meldsNeeded=4-exposedMeldCount;
+  const tiles=concealedTiles.slice();
+  const jokerCount=tiles.filter(isJoker).length;
+  const nonJokers=tiles.filter(t=>!isJoker(t));
+  const counts=countTiles(nonJokers);
+  if(exposedMeldCount===0 && jokerCount===0 && tiles.length===14){
+    const c=countTiles(tiles); const vals=Object.values(c);
+    if(vals.length===7 && vals.every(v=>v===2)) return {ok:true,special:'sevenPairs'};
+  }
+  const candidates=Object.keys(counts).filter(k=>counts[k]>=2);
+  for(const p of candidates){
+    counts[p]-=2;
+    if(canExtractMelds(counts,jokerCount,meldsNeeded)){counts[p]+=2;return {ok:true,special:null};}
+    counts[p]+=2;
+  }
+  return {ok:false};
+}
+function isAllPungsHand(concealedTiles,exposedMelds){
+  if(exposedMelds.some(m=>m.type==='chow')) return false;
+  const meldsNeeded=4-exposedMelds.length;
+  const tiles=concealedTiles.slice();
+  const jokerCount=tiles.filter(isJoker).length;
+  const counts=countTiles(tiles.filter(t=>!isJoker(t)));
+  const candidates=Object.keys(counts).filter(k=>counts[k]>=2);
+  for(const p of candidates){
+    counts[p]-=2;
+    const ok=canExtractPungsOnly(counts,jokerCount,meldsNeeded);
+    counts[p]+=2;
+    if(ok) return true;
+  }
+  return false;
+}
+function isAllOneSuitHand(concealedTiles,exposedMelds){
+  const all=concealedTiles.concat(...exposedMelds.map(m=>m.tiles));
+  const real=all.filter(t=>!isJoker(t));
+  if(real.some(isHonor)) return false;
+  const suits=new Set(real.map(suitOf));
+  return suits.size===1;
+}
+</script>
+<script>
+/* ---------------- constants ---------------- */
+const POLL_MS = 1800;
+const CLAIM_WINDOW_MS = 9000;
+const DEAD_WALL_SIZE = 14; // tiles held back at the back of the wall; when the draw pointer
+                           // reaches them the hand ends in a draw (no winner)
+
+/* ---------------- storage helpers ---------------- */
+async function storageGet(key, shared){
+  try{ const r = await window.storage.get(key, !!shared); return r ? r.value : null; }
+  catch(e){ return null; }
+}
+async function storageSet(key, value, shared){
+  try{ return await window.storage.set(key, value, !!shared); }
+  catch(e){ console.error('storage set failed', e); return null; }
+}
+
+function roomKey(code){ return 'room:'+code; }
+
+async function getRoom(code){
+  const raw = await storageGet(roomKey(code), true);
+  if(!raw) return null;
+  try{ return JSON.parse(raw); }catch(e){ return null; }
+}
+async function putRoom(room){
+  return await storageSet(roomKey(room.code), JSON.stringify(room), true);
+}
+
+// Read-modify-write with a small optimistic-concurrency retry loop.
+// updateFn(draft) mutates draft in place and returns true to write it, or false to abort.
+async function updateRoom(code, updateFn){
+  for(let attempt=0; attempt<8; attempt++){
+    const room = await getRoom(code);
+    if(!room) return null;
+    const proceed = updateFn(room);
+    if(!proceed) return room;
+    room.version = (room.version||0) + 1;
+    room.updatedAt = Date.now();
+    const tok = Math.random().toString(36).slice(2) + '_' + Date.now();
+    room._tok = tok;
+    await putRoom(room);
+    // brief re-read to confirm OUR write is still the latest value — a concurrent writer
+    // could have raced us and overwritten it (even with the same version number), so we
+    // check our unique write token rather than the version number alone.
+    await new Promise(r=>setTimeout(r, 70 + Math.random()*60));
+    const check = await getRoom(code);
+    if(check && check._tok === tok) return check;
+    // someone else won the race — loop and retry the whole read-modify-write against fresh state
+  }
+  return await getRoom(code);
+}
+
+/* ---------------- personal profile (per browser/account, not shared) ---------------- */
+let PROFILE = null;
+async function loadProfile(){
+  const raw = await storageGet('profile', false);
+  if(raw){ try{ PROFILE = JSON.parse(raw); }catch(e){ PROFILE=null; } }
+  if(!PROFILE){
+    PROFILE = { id: 'p_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36), name:'' };
+    await storageSet('profile', JSON.stringify(PROFILE), false);
+  }
+  return PROFILE;
+}
+async function saveProfile(){ await storageSet('profile', JSON.stringify(PROFILE), false); }
+
+function randomRoomCode(){
+  const letters='ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let s=''; for(let i=0;i<4;i++) s+=letters[Math.floor(Math.random()*letters.length)];
+  return s;
+}
+
+/* ---------------- room model ---------------- */
+function freshRoom(code, hostId){
+  return {
+    code, version:0, createdAt:Date.now(), updatedAt:Date.now(),
+    hostId,
+    phase:'lobby', // lobby | pass | play | handEnd | matchEnd
+    seats:[null,null,null,null], // {id,name,isBot,connected}
+    dealerSeat:0, handNumber:0,
+    scores:[0,0,0,0],
+    deck:[], deckPos:0, deadWallPos:0,
+    hands:[[],[],[],[]],
+    melds:[[],[],[],[]],
+    discardPile:[],
+    turnSeat:0, turnPhase:'draw',
+    pendingDiscard:null,
+    passPhase:null,
+    lastHandResult:null,
+    log:[]
+  };
+}
+function pushLog(room, msg){
+  room.log.push(msg);
+  if(room.log.length>40) room.log.splice(0, room.log.length-40);
+}
+function mySeatIndex(room){
+  if(!room) return -1;
+  return room.seats.findIndex(s=>s && s.id===PROFILE.id);
+}
+</script>
+<script>
+/* ---------------- claim eligibility ---------------- */
+function jokerCountIn(tiles){ return tiles.filter(isJoker).length; }
+
+function eligiblePong(hand, tile){
+  const nonJ = hand.filter(t=>t===tile).length;
+  const jk = jokerCountIn(hand);
+  const need = 2 - nonJ;
+  return need>=0 && need<=jk;
+}
+function eligibleKong(hand, tile){
+  const nonJ = hand.filter(t=>t===tile).length;
+  const jk = jokerCountIn(hand);
+  const need = 3 - nonJ;
+  return need>=0 && need<=jk;
+}
+function eligibleChowRuns(hand, tile){
+  // returns array of the up-to-3 possible run shapes (as the two OTHER tiles needed),
+  // each entry: {need:[tileId,tileId]} where a tileId might be satisfied by a joker
+  if(!isSuited(tile)) return [];
+  const s=suitOf(tile), r=rankOf(tile);
+  const shapes=[];
+  if(r>=3) shapes.push([s+(r-2), s+(r-1)]);          // tile is the highest of the run
+  if(r>=2 && r<=8) shapes.push([s+(r-1), s+(r+1)]);   // tile is the middle
+  if(r<=7) shapes.push([s+(r+1), s+(r+2)]);           // tile is the lowest
+  const jk = jokerCountIn(hand);
+  const counts = countTiles(hand);
+  const usable=[];
+  for(const pair of shapes){
+    let need=0;
+    for(const need_t of pair){ if((counts[need_t]||0)<1) need++; }
+    if(need<=jk) usable.push(pair);
+  }
+  return usable;
+}
+function computeEligibleClaims(room, discardSeat, tile){
+  const out = {}; // seat -> array of claim types available
+  for(let seat=0; seat<4; seat++){
+    if(seat===discardSeat) continue;
+    if(!room.seats[seat]) continue;
+    const hand = room.hands[seat];
+    const types = [];
+    const winCheck = isWinningShape(hand.concat([tile]), room.melds[seat].length);
+    if(winCheck.ok) types.push('win');
+    if(eligibleKong(hand, tile)) types.push('kong');
+    if(eligiblePong(hand, tile)) types.push('pong');
+    if(seat === (discardSeat+1)%4 && eligibleChowRuns(hand, tile).length>0) types.push('chow');
+    if(types.length) out[seat]=types;
+  }
+  return out;
+}
+
+/* ---------------- scoring ---------------- */
+// Returns {base, doubles, labels:[...], totalEach:{}} style breakdown for a finished hand.
+function scoreHand(room, winnerSeat, winTile, wonBy /* 'self'|'discard' */, discarderSeat){
+  const hand = room.hands[winnerSeat];
+  const melds = room.melds[winnerSeat];
+  const allTiles = hand.concat(winTile?[winTile]:[]);
+  const shape = isWinningShape(allTiles, melds.length);
+  let doubles = 0;
+  const labels = [];
+  if(shape.special==='sevenPairs'){ doubles += 2; labels.push('Seven Pairs'); }
+  if(isAllPungsHand(allTiles, melds)){ doubles += 1; labels.push('All Pungs/Kongs'); }
+  if(isAllOneSuitHand(allTiles, melds)){ doubles += 1; labels.push('One Suit Flush'); }
+  if(melds.some(m=>m.type==='kong')){ doubles += melds.filter(m=>m.type==='kong').length; labels.push('Kong Bonus'); }
+  if(wonBy==='self'){ doubles += 1; labels.push('Self-Drawn'); }
+  const base = 1;
+  const points = base * Math.pow(2, doubles);
+  return { base, doubles, labels, points };
+}
+</script>
+<script>
+/* ================= GAME ENGINE (pure mutations on a room draft) ================= */
+
+function drawPointerExhausted(room){ return room.deckPos >= room.deck.length - DEAD_WALL_SIZE; }
+
+function dealNewHand(room){
+  room.deck = shuffle(buildDeck());
+  let pos = 0;
+  for(let seat=0; seat<4; seat++){ room.hands[seat] = room.deck.slice(pos, pos+13); pos += 13; }
+  room.deckPos = pos;
+  const dealerExtra = room.deck[room.deckPos]; room.deckPos++;
+  room.hands[room.dealerSeat].push(dealerExtra);
+  room.melds = [[],[],[],[]];
+  room.discardPile = [];
+  room.pendingDiscard = null;
+  room.lastHandResult = null;
+  room.handNumber++;
+  room.phase = 'pass';
+  room.passPhase = { submitted:{} };
+  room.turnSeat = room.dealerSeat;
+  room.turnPhase = 'discard';
+  pushLog(room, 'Hand '+room.handNumber+' dealt — '+seatName(room,room.dealerSeat)+' is dealer.');
+}
+function seatName(room, seat){ return room.seats[seat] ? room.seats[seat].name : '???'; }
+
+function actionCreateRoom_(room){ return true; } // room created fresh, nothing else to mutate
+
+function actionJoinSeat(room, seatIdx, profile){
+  if(room.phase!=='lobby') return false;
+  if(room.seats[seatIdx] && room.seats[seatIdx].id!==profile.id && !room.seats[seatIdx].isBot) return false;
+  for(let i=0;i<4;i++){ if(room.seats[i] && room.seats[i].id===profile.id) room.seats[i]=null; }
+  room.seats[seatIdx] = { id:profile.id, name:profile.name||'Player', isBot:false, connected:true };
+  return true;
+}
+function actionLeaveSeat(room, profileId){
+  if(room.phase!=='lobby') return false;
+  let changed=false;
+  for(let i=0;i<4;i++){ if(room.seats[i] && room.seats[i].id===profileId){ room.seats[i]=null; changed=true; } }
+  return changed;
+}
+function actionAddBot(room, seatIdx, hostId){
+  if(room.hostId!==hostId || room.phase!=='lobby') return false;
+  if(room.seats[seatIdx]) return false; // already occupied — idempotent no-op, never overwrite
+  room.seats[seatIdx] = { id:'bot_'+seatIdx+'_'+Math.random().toString(36).slice(2,6), name: ['Lola Bot','Tito Bot','Ate Bot','Kuya Bot'][seatIdx], isBot:true, connected:true };
+  return true;
+}
+function actionRemoveBot(room, seatIdx, hostId){
+  if(room.hostId!==hostId || room.phase!=='lobby') return false;
+  if(!room.seats[seatIdx] || !room.seats[seatIdx].isBot) return false; // already empty/human — idempotent no-op
+  room.seats[seatIdx] = null;
+  return true;
+}
+function actionKickSeat(room, seatIdx, hostId){
+  if(room.hostId!==hostId || room.phase!=='lobby') return false;
+  if(!room.seats[seatIdx]) return false;
+  room.seats[seatIdx] = null;
+  return true;
+}
+function actionStartMatch(room, hostId){
+  if(room.hostId!==hostId) return false;
+  if(room.phase!=='lobby') return false;
+  if(room.seats.some(s=>!s)) return false;
+  room.dealerSeat = 0;
+  room.scores = [0,0,0,0];
+  room.handNumber = 0;
+  dealNewHand(room);
+  return true;
+}
+
+function actionSubmitPass(room, seat, tiles3){
+  if(room.phase!=='pass') return false;
+  if(!room.passPhase || room.passPhase.submitted[seat]) return false;
+  const hand = room.hands[seat].slice();
+  for(const t of tiles3){ const idx=hand.indexOf(t); if(idx<0) return false; hand.splice(idx,1); }
+  if(tiles3.length!==3) return false;
+  room.passPhase.submitted[seat] = tiles3.slice();
+  const allIn = [0,1,2,3].every(s=>room.passPhase.submitted[s]);
+  if(allIn){
+    for(let s=0;s<4;s++){
+      const chosen = room.passPhase.submitted[s];
+      for(const t of chosen){ const idx=room.hands[s].indexOf(t); if(idx>=0) room.hands[s].splice(idx,1); }
+    }
+    for(let s=0;s<4;s++){
+      const target=(s+1)%4;
+      room.hands[target] = room.hands[target].concat(room.passPhase.submitted[s]);
+    }
+    room.passPhase = null;
+    room.phase = 'play';
+    room.turnSeat = room.dealerSeat;
+    room.turnPhase = 'discard';
+    pushLog(room, 'Tiles passed to the right — '+seatName(room,room.dealerSeat)+' leads.');
+  }
+  return true;
+}
+
+function advanceTurnAfterDiscard(room, fromSeat){
+  room.pendingDiscard = null;
+  if(drawPointerExhausted(room)){ endHandDraw(room); return; }
+  room.turnSeat = (fromSeat+1)%4;
+  room.turnPhase = 'draw';
+}
+function endHandDraw(room){
+  room.phase = 'handEnd';
+  room.pendingDiscard = null;
+  room.lastHandResult = { draw:true };
+  pushLog(room, 'The wall ran dry — no winner this hand.');
+}
+
+function actionDiscard(room, seat, tile){
+  if(room.phase!=='play' || room.turnSeat!==seat || room.turnPhase!=='discard') return false;
+  const idx = room.hands[seat].indexOf(tile);
+  if(idx<0) return false;
+  room.hands[seat].splice(idx,1);
+  room.discardPile.push({tile, seat});
+  const elig = computeEligibleClaims(room, seat, tile);
+  if(Object.keys(elig).length>0){
+    room.pendingDiscard = { tile, seat, eligible:elig, responses:{}, deadline: Date.now()+CLAIM_WINDOW_MS };
+    room.turnPhase = 'claim';
+  } else {
+    advanceTurnAfterDiscard(room, seat);
+  }
+  pushLog(room, seatName(room,seat)+' discarded '+tileLabel(tile)+'.');
+  return true;
+}
+function actionDraw(room, seat){
+  if(room.phase!=='play' || room.turnSeat!==seat || room.turnPhase!=='draw') return false;
+  if(drawPointerExhausted(room)){ endHandDraw(room); return true; }
+  const tile = room.deck[room.deckPos]; room.deckPos++;
+  room.hands[seat].push(tile);
+  room.turnPhase = 'discard';
+  return true;
+}
+function actionDeclareSelfWin(room, seat){
+  if(room.phase!=='play' || room.turnSeat!==seat || room.turnPhase!=='discard') return false;
+  const check = isWinningShape(room.hands[seat], room.melds[seat].length);
+  if(!check.ok) return false;
+  finalizeWin(room, seat, null, 'self', null);
+  return true;
+}
+function actionDeclarePopEye(room, seat){
+  if(room.phase!=='play' || room.turnSeat!==seat) return false;
+  if(jokerCountIn(room.hands[seat])<4) return false;
+  room.phase = 'handEnd';
+  room.pendingDiscard = null;
+  const pts = 2;
+  for(let s=0;s<4;s++){ if(s!==seat) room.scores[s]-=pts; }
+  room.scores[seat]+= pts*3;
+  room.lastHandResult = { popEye:true, winnerSeat:seat };
+  room.dealerSeat = seat;
+  pushLog(room, seatName(room,seat)+' grabbed all four Jokers — Pop-Eye instant win!');
+  return true;
+}
+function finalizeWin(room, winnerSeat, winTile, wonBy, discarderSeat){
+  const score = scoreHand(room, winnerSeat, winTile, wonBy, discarderSeat);
+  if(wonBy==='self'){
+    for(let s=0;s<4;s++){ if(s!==winnerSeat){ room.scores[s]-=score.points*2; room.scores[winnerSeat]+=score.points*2; } }
+  } else {
+    for(let s=0;s<4;s++){
+      if(s===winnerSeat) continue;
+      const pay = (s===discarderSeat)? score.points*2 : score.points;
+      room.scores[s]-=pay; room.scores[winnerSeat]+=pay;
+    }
+  }
+  room.phase = 'handEnd';
+  room.pendingDiscard = null;
+  room.lastHandResult = { draw:false, winnerSeat, winTile, wonBy, discarderSeat, score,
+    hand: room.hands[winnerSeat].concat(winTile?[winTile]:[]), melds: room.melds[winnerSeat] };
+  pushLog(room, seatName(room,winnerSeat)+' wins (+'+score.points+' pts: '+score.labels.join(', ')+')');
+  room.dealerSeat = winnerSeat;
+}
+
+function applyMeldClaim(room, seat, type, tile, fromSeat){
+  const hand = room.hands[seat];
+  if(type==='pong' || type==='kong'){
+    const need = type==='pong' ? 2 : 3;
+    let tilesUsed = [];
+    let real = hand.filter(t=>t===tile).length;
+    let useReal = Math.min(real, need);
+    for(let i=0;i<useReal;i++){ const idx=hand.indexOf(tile); hand.splice(idx,1); tilesUsed.push(tile); }
+    let stillNeed = need - useReal;
+    for(let i=0;i<stillNeed;i++){ const idx=hand.indexOf('JK'); if(idx<0) break; hand.splice(idx,1); tilesUsed.push('JK'); }
+    tilesUsed.push(tile);
+    room.melds[seat].push({ type, tiles: tilesUsed, fromSeat });
+  } else if(type==='chow'){
+    const runs = eligibleChowRuns(hand, tile);
+    if(!runs.length) return;
+    const pick = runs[0];
+    let used = [tile];
+    for(const needT of pick){
+      if(hand.includes(needT)){ const idx=hand.indexOf(needT); hand.splice(idx,1); used.push(needT); }
+      else { const idx=hand.indexOf('JK'); if(idx<0) continue; hand.splice(idx,1); used.push('JK'); }
+    }
+    room.melds[seat].push({ type:'chow', tiles: used, fromSeat });
+  }
+  room.turnSeat = seat;
+  room.turnPhase = 'discard';
+  pushLog(room, seatName(room,seat)+' called '+type+' on '+tileLabel(tile)+'.');
+  if(type==='kong'){
+    if(!drawPointerExhausted(room)){
+      const repl = room.deck[room.deckPos]; room.deckPos++;
+      room.hands[seat].push(repl);
+    }
+    for(let s=0;s<4;s++){ if(s!==seat){ room.scores[s]-=1; room.scores[seat]+=1; } }
+  }
+}
+
+function pickClosestToDiscarder(arr, discardSeat){
+  return arr.reduce((best,c)=>{
+    const dist = (c.seat - discardSeat - 1 + 4)%4;
+    const bestDist = (best.seat - discardSeat - 1 + 4)%4;
+    return dist < bestDist ? c : best;
+  });
+}
+function resolveClaimWindowIfReady(room){
+  const pd = room.pendingDiscard;
+  if(!pd) return false;
+  const eligibleSeats = Object.keys(pd.eligible).map(Number);
+  const allResponded = eligibleSeats.every(s => pd.responses[s] !== undefined);
+  const timeUp = Date.now() >= pd.deadline;
+  if(!allResponded && !timeUp) return false;
+  room.pendingDiscard = null; // detach now — everything below uses the captured `pd`, not room.pendingDiscard
+  const claims = eligibleSeats.filter(s => pd.responses[s] && pd.responses[s]!=='pass')
+    .map(s => ({ seat:s, type: pd.responses[s] }));
+  const winners = claims.filter(c=>c.type==='win');
+  if(winners.length){
+    const w = pickClosestToDiscarder(winners, pd.seat);
+    room.discardPile.pop();
+    finalizeWin(room, w.seat, pd.tile, 'discard', pd.seat);
+    return true;
+  }
+  const kongs = claims.filter(c=>c.type==='kong');
+  const pongs = claims.filter(c=>c.type==='pong');
+  const chows = claims.filter(c=>c.type==='chow');
+  let chosen = null;
+  if(kongs.length) chosen = pickClosestToDiscarder(kongs, pd.seat);
+  else if(pongs.length) chosen = pickClosestToDiscarder(pongs, pd.seat);
+  else if(chows.length) chosen = chows[0];
+  if(chosen){
+    room.discardPile.pop();
+    applyMeldClaim(room, chosen.seat, chosen.type, pd.tile, pd.seat);
+    return true;
+  }
+  advanceTurnAfterDiscard(room, pd.seat);
+  return true;
+}
+function actionClaim(room, seat, type){
+  if(room.phase!=='play' || room.turnPhase!=='claim' || !room.pendingDiscard) return false;
+  const pd = room.pendingDiscard;
+  if(!pd.eligible[seat]) return false;
+  if(pd.responses[seat]!==undefined) return false;
+  if(type!=='pass' && !pd.eligible[seat].includes(type)) return false;
+  pd.responses[seat] = type;
+  resolveClaimWindowIfReady(room);
+  return true;
+}
+function actionForceResolveClaim(room){
+  if(!room.pendingDiscard) return false;
+  if(Date.now() < room.pendingDiscard.deadline) return false;
+  return resolveClaimWindowIfReady(room);
+}
+function myAvailableConcealedKongs(room, seat){
+  const hand = room.hands[seat];
+  const counts = countTiles(hand.filter(t=>!isJoker(t)));
+  const out = new Set();
+  for(const t of Object.keys(counts)){ if(counts[t]>=4) out.add(t); }
+  for(const m of room.melds[seat]){
+    if(m.type==='pong'){
+      const matchTile = m.tiles.find(t=>!isJoker(t));
+      if(matchTile && hand.includes(matchTile)) out.add(matchTile);
+    }
+  }
+  return Array.from(out);
+}
+function actionDeclareKongFromHand(room, seat, tile){
+  if(room.phase!=='play' || room.turnSeat!==seat || room.turnPhase!=='discard') return false;
+  const hand = room.hands[seat];
+  const count = hand.filter(t=>t===tile).length;
+  if(count>=4){
+    for(let i=0;i<4;i++){ const idx=hand.indexOf(tile); hand.splice(idx,1); }
+    room.melds[seat].push({ type:'kong', tiles:[tile,tile,tile,tile], concealed:true });
+  } else {
+    const pungIdx = room.melds[seat].findIndex(m=>m.type==='pong' && m.tiles.filter(t=>!isJoker(t)).every(t=>t===tile));
+    const idx = hand.indexOf(tile);
+    if(pungIdx<0 || idx<0) return false;
+    hand.splice(idx,1);
+    const old = room.melds[seat][pungIdx];
+    room.melds[seat][pungIdx] = { type:'kong', tiles: old.tiles.concat([tile]), upgraded:true };
+  }
+  if(drawPointerExhausted(room)){ endHandDraw(room); return true; }
+  const repl = room.deck[room.deckPos]; room.deckPos++;
+  room.hands[seat].push(repl);
+  for(let s=0;s<4;s++){ if(s!==seat){ room.scores[s]-=1; room.scores[seat]+=1; } }
+  pushLog(room, seatName(room,seat)+' declared a concealed Kong.');
+  return true;
+}
+function actionNextHand(room){
+  if(room.phase!=='handEnd') return false;
+  dealNewHand(room);
+  return true;
+}
+function actionEndMatch(room){
+  room.phase = 'matchEnd';
+  return true;
+}
+function actionBackToLobby(room){
+  const seats = room.seats;
+  Object.assign(room, freshRoom(room.code, room.hostId));
+  room.seats = seats;
+  return true;
+}
+
+/* ---------------- bot heuristics ---------------- */
+function botChoosePassTiles(hand){
+  const counts = countTiles(hand);
+  const scored = hand.map((t,i)=>{
+    let score=0;
+    if(isJoker(t)) score-=99;
+    else if(isHonor(t)){ score+=3; if(counts[t]>=2) score-=4; }
+    else {
+      const s=suitOf(t), r=rankOf(t);
+      if(counts[t]>=2) score-=4;
+      const hasNeighbor = hand.includes(s+(r-1)) || hand.includes(s+(r+1));
+      if(!hasNeighbor) score+=2;
+      if(r===1||r===9) score+=1;
+    }
+    return {t,i,score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.slice(0,3).map(x=>x.t);
+}
+function botChooseDiscard(hand){
+  const counts = countTiles(hand);
+  const nonJoker = hand.filter(t=>!isJoker(t));
+  const pool = nonJoker.length ? nonJoker : hand;
+  const scored = pool.map(t=>{
+    let score=0;
+    if(counts[t]>=2) score-=5;
+    if(isHonor(t)) score+=2;
+    if(isSuited(t)){
+      const s=suitOf(t), r=rankOf(t);
+      if(hand.includes(s+(r-1)) || hand.includes(s+(r+1))) score-=2;
+      if(hand.includes(s+(r-2)) || hand.includes(s+(r+2))) score-=1;
+    }
+    return {t,score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored[0].t;
+}
+function botClaimDecision(types){
+  if(types.includes('win')) return 'win';
+  if(types.includes('kong') && Math.random()<0.5) return 'kong';
+  if(types.includes('pong') && Math.random()<0.5) return 'pong';
+  if(types.includes('chow') && Math.random()<0.3) return 'chow';
+  return 'pass';
+}
+</script>
+<script>
+/* ================= RENDERING ================= */
+let STATE = {
+  screen: 'home',     // 'home' | 'room'
+  roomCode: null,
+  room: null,
+  selectedDiscardIdx: null,
+  selectedPassIdx: [],
+  showHowTo: false,
+  busy: false,
+};
+
+function tileNode(tile, opts){
+  opts = opts || {};
+  const cls = ['tile'];
+  if(opts.big) cls.push('big');
+  if(opts.back) cls.push('back');
+  if(opts.clickable) cls.push('clickable');
+  if(opts.selected) cls.push('selected');
+  if(opts.passsel) cls.push('passsel');
+  if(!opts.back){
+    if(isJoker(tile)) cls.push('joker');
+    else if(WINDS.includes(tile)||DRAGONS.includes(tile)) {
+      cls.push('honor');
+      if(DRAGONS.includes(tile)) cls.push('dragon-'+tile);
+    }
+    else cls.push('suit-'+suitOf(tile));
+  }
+  const glyph = opts.back ? '' : (GLYPH[tile]||'?');
+  const dataAttrs = opts.action ? ` data-action="${opts.action}" data-tile="${tile}"${opts.extra||''}` : '';
+  return `<div class="${cls.join(' ')}" title="${opts.back?'':tileLabel(tile)}"${dataAttrs}>${glyph}</div>`;
+}
+function meldNode(meld){
+  return `<div class="meld-tiles">${meld.tiles.map(t=>tileNode(t,{})).join('')}</div>`;
+}
+function backTilesRow(n){
+  let s='<div class="tilecount">';
+  for(let i=0;i<Math.min(n,14);i++) s += '<div class="backtile"></div>';
+  s += '</div>';
+  return s;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderApp(){
+  const app = document.getElementById('app');
+  if(STATE.screen==='home'){
+    app.innerHTML = renderHome();
+  } else if(!STATE.room){
+    app.innerHTML = `<div class="screen center" style="justify-content:center;flex:1;"><p class="muted">Loading room…</p></div>`;
+  } else if(STATE.room.phase==='lobby'){
+    app.innerHTML = renderLanterns() + renderLobby(STATE.room);
+  } else {
+    app.innerHTML = renderLanterns() + renderGame(STATE.room);
+  }
+  if(STATE.showHowTo) app.insertAdjacentHTML('beforeend', renderHowTo());
+}
+
+function renderLanterns(){
+  return `<div class="lanterns">${Array.from({length:7}).map(()=>'<div class="lantern"></div>').join('')}</div>`;
+}
+
+function renderHome(){
+  return `
+  ${renderLanterns()}
+  <div class="screen">
+    <div class="center" style="margin-bottom:8px;">
+      <h1 class="brand">🀄 Sulit Mahjong</h1>
+      <p class="subtitle">Filipino-style mahjong, played online with your barkada.</p>
+    </div>
+    <div class="card">
+      <label for="nameInput">Your name</label>
+      <input id="nameInput" type="text" maxlength="18" placeholder="e.g. Tita Rosa" value="${escapeHtml(PROFILE.name||'')}">
+    </div>
+    <div class="card">
+      <label>Start a new table</label>
+      <p class="muted" style="margin-top:-4px;">You'll get a 4-letter room code to share with friends.</p>
+      <button class="btn" data-action="createRoom" style="width:100%;margin-top:6px;">🏮 Create a room</button>
+    </div>
+    <div class="card">
+      <label for="joinCodeInput">Join a room</label>
+      <input id="joinCodeInput" type="text" maxlength="4" placeholder="Room code, e.g. ABCD" style="text-transform:uppercase;letter-spacing:.15em;">
+      <button class="btn secondary" data-action="joinRoom" style="width:100%;margin-top:8px;">🚪 Join</button>
+    </div>
+    <p id="homeError" class="muted center" style="color:#e08a6f;min-height:18px;"></p>
+    <p class="center"><button class="linkish" data-action="toggleHowTo">How does this work? / House rules</button></p>
+  </div>`;
+}
+</script>
+<script>
+function renderLobby(room){
+  const my = mySeatIndex(room);
+  const isHost = room.hostId === PROFILE.id;
+  const seatsHtml = room.seats.map((s,i)=>{
+    const windLabel = ['East','South','West','North'][i];
+    if(!s){
+      return `<div class="seat-card empty">
+        <span class="seat-wind">${windLabel[0]}</span>
+        <div class="seat-name muted">Open seat</div>
+        <div class="btn-row">
+          <button class="btn jade" style="padding:6px 10px;font-size:.8rem;" data-action="joinSeat" data-seat="${i}">Sit here</button>
+          ${isHost?`<button class="btn secondary" style="padding:6px 10px;font-size:.8rem;" data-action="addBot" data-seat="${i}">+ Bot</button>`:''}
+        </div>
+      </div>`;
+    }
+    const mine = s.id===PROFILE.id;
+    return `<div class="seat-card ${mine?'mine':''}">
+      <span class="seat-wind">${windLabel[0]}</span>
+      <div class="seat-name">${escapeHtml(s.name)}${s.isBot?' 🤖':''}${mine?' (you)':''}</div>
+      <div class="seat-tag">${windLabel} ${room.hostId===s.id?'· Host':''}</div>
+      <div class="btn-row">
+        ${mine?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="leaveSeat">Leave</button>`:''}
+        ${(isHost && s.isBot)?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="removeBot" data-seat="${i}">Remove bot</button>`:''}
+        ${(isHost && !mine && !s.isBot)?`<button class="btn ember" style="padding:5px 9px;font-size:.75rem;" data-action="kickSeat" data-seat="${i}">Kick</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const filled = room.seats.every(s=>s);
+  return `
+  <div class="screen">
+    <div class="title-row">
+      <h1 class="brand" style="font-size:1.5rem;margin:0;">🏮 Room ${room.code}</h1>
+      <button class="icon-btn" data-action="copyCode" title="Copy room code">📋</button>
+    </div>
+    <p class="muted">Share this code so your friends can join: <span class="pill">${room.code}</span></p>
+    <div class="seat-grid">${seatsHtml}</div>
+    <div class="btn-row" style="margin-top:6px;">
+      ${isHost?`<button class="btn" style="flex:1;" data-action="startMatch" ${filled?'':'disabled'}>🀄 Start the game</button>`:`<p class="muted">Waiting for the host to start…</p>`}
+    </div>
+    ${!filled?'<p class="muted center" style="margin-top:6px;">Fill all four seats (friends or bots) to start.</p>':''}
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn secondary" data-action="leaveRoom">⟵ Leave room</button>
+      <button class="linkish" data-action="toggleHowTo">How to play</button>
+    </div>
+  </div>`;
+}
+</script>
+<script>
+function relativeLabel(offset){ return ['','Next','Across','Before you'][offset]; }
+
+function renderOpponentsRow(room, mySeat){
+  const order = mySeat<0 ? [0,1,2,3] : [ (mySeat+1)%4, (mySeat+2)%4, (mySeat+3)%4 ];
+  return `<div class="opponents-row">` + order.map(seat=>{
+    const s = room.seats[seat];
+    if(!s) return '';
+    const isTurn = room.phase==='play' && room.turnSeat===seat;
+    const initials = (s.name||'?').slice(0,2).toUpperCase();
+    const handCount = room.hands[seat] ? room.hands[seat].length : 0;
+    const melds = (room.melds[seat]||[]).map(m=>`<div class="meld-tiles">${m.tiles.map(t=>tileNode(t,{})).join('')}</div>`).join('');
+    return `<div class="opp ${isTurn?'turn':''}">
+      <div class="avatar">${initials}</div>
+      <div class="nm">${escapeHtml(s.name)}${room.dealerSeat===seat?' 🀄':''}${s.isBot?' 🤖':''}</div>
+      ${backTilesRow(handCount)}
+      <div class="meld-strip">${melds}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function renderFelt(room){
+  const wallLeft = Math.max(0, room.deck.length - DEAD_WALL_SIZE - room.deckPos);
+  const discards = room.discardPile.slice(-16);
+  const lastIdx = discards.length-1;
+  const discardHtml = discards.map((d,i)=>{
+    const ring = i===lastIdx ? 'last-discard-ring' : '';
+    return `<span class="${ring}">${tileNode(d.tile,{})}</span>`;
+  }).join('');
+  return `<div class="felt">
+    <div class="wall-info">🀫 Wall: ${wallLeft}</div>
+    <div class="dealer-info">🀄 ${seatName(room,room.dealerSeat)}</div>
+    ${discards.length? `<div class="discard-grid">${discardHtml}</div>` : `<p class="muted center">The table is set. First discard coming up…</p>`}
+  </div>`;
+}
+
+function renderPassDock(room, mySeat){
+  const submittedSeats = room.passPhase ? Object.keys(room.passPhase.submitted).map(Number) : [];
+  const waitingFor = [0,1,2,3].filter(s=>!submittedSeats.includes(s)).map(s=>seatName(room,s));
+  const already = mySeat>=0 && room.passPhase && room.passPhase.submitted[mySeat];
+  const hand = sortHand(room.hands[mySeat]||[]);
+  const handHtml2 = hand.map((t,idx)=>{
+    const sel = STATE.selectedPassIdx && STATE.selectedPassIdx.includes(idx);
+    return `<div class="tile ${already?'':'clickable'} ${sel?'passsel':''} ${isJoker(t)?'joker':(isHonor(t)?('honor '+(DRAGONS.includes(t)?'dragon-'+t:'')):('suit-'+suitOf(t)))}"
+      ${already?'':`data-action="togglePassIdx" data-idx="${idx}"`} title="${tileLabel(t)}">${GLYPH[t]}</div>`;
+  }).join('');
+  return `
+  <div class="hand-dock">
+    <div class="turn-banner">🎁 Goulash pass: choose 3 tiles to pass to ${seatName(room,(mySeat+1)%4)}</div>
+    <div class="hand-row">${handHtml2}</div>
+    <div class="action-bar">
+      ${already
+        ? `<p class="muted">Waiting on: ${waitingFor.join(', ')||'everyone'}…</p>`
+        : `<button class="btn" data-action="confirmPass" ${STATE.selectedPassIdx&&STATE.selectedPassIdx.length===3?'':'disabled'}>Pass these 3 tiles</button>`}
+    </div>
+  </div>`;
+}
+
+function renderPlayDock(room, mySeat){
+  if(mySeat<0){
+    return `<div class="hand-dock"><p class="muted center">You're spectating this table.</p></div>`;
+  }
+  const hand = sortHand(room.hands[mySeat]||[]);
+  const melds = room.melds[mySeat]||[];
+  const myTurn = room.turnSeat===mySeat;
+  const pd = room.pendingDiscard;
+  const iCanClaim = pd && pd.eligible[mySeat] && pd.responses[mySeat]===undefined;
+
+  const meldsHtml = melds.map(m=>meldNode(m)).join('');
+  const handHtml = hand.map((t,idx)=>{
+    const sel = STATE.selectedDiscardIdx === idx;
+    const clickable = myTurn && room.turnPhase==='discard';
+    return `<div class="tile ${clickable?'clickable':''} ${sel?'selected':''} ${isJoker(t)?'joker':(isHonor(t)?('honor '+(DRAGONS.includes(t)?'dragon-'+t:'')):('suit-'+suitOf(t)))}"
+      ${clickable?`data-action="selectDiscard" data-idx="${idx}"`:''} title="${tileLabel(t)}">${GLYPH[t]}</div>`;
+  }).join('');
+
+  let actionBar = '';
+  let banner = '';
+  if(myTurn && room.turnPhase==='draw'){
+    banner = `Your turn — draw a tile.`;
+    actionBar = `<button class="btn" data-action="drawTile">🀫 Draw tile</button>`;
+  } else if(myTurn && room.turnPhase==='discard'){
+    const canWin = isWinningShape(room.hands[mySeat], melds.length).ok;
+    const popEye = jokerCountIn(room.hands[mySeat])>=4;
+    const kongs = myAvailableConcealedKongs(room, mySeat);
+    banner = canWin ? `You can declare Mahjong! 🎉` : `Your turn — pick a tile to discard.`;
+    actionBar = `
+      ${canWin?`<button class="btn jade" data-action="declareWin">🀄 Declare Mahjong</button>`:''}
+      ${popEye?`<button class="btn jade" data-action="declarePopEye">🃏 Pop-Eye!</button>`:''}
+      ${kongs.map(t=>`<button class="btn secondary" data-action="declareKong" data-tile="${t}">Kong ${tileLabel(t)}</button>`).join('')}
+      <button class="btn ember" data-action="confirmDiscard" ${STATE.selectedDiscardIdx==null?'disabled':''}>Discard</button>`;
+  } else if(room.turnPhase==='claim' && pd){
+    const secondsLeft = Math.max(0, Math.ceil((pd.deadline-Date.now())/1000));
+    if(iCanClaim){
+      banner = `${seatName(room,pd.seat)} discarded ${tileLabel(pd.tile)} — claim it? <span id="claim-countdown">(${secondsLeft}s)</span>`;
+      const types = pd.eligible[mySeat];
+      actionBar = types.map(ty=>{
+        const label = ty==='win'?'🀄 Mahjong!':ty.charAt(0).toUpperCase()+ty.slice(1);
+        const cls = ty==='win'?'jade':'secondary';
+        return `<button class="btn ${cls}" data-action="claim" data-type="${ty}">${label}</button>`;
+      }).join('') + `<button class="btn secondary" data-action="claim" data-type="pass">Pass</button>`;
+    } else {
+      banner = `${seatName(room,pd.seat)} discarded ${tileLabel(pd.tile)} — waiting on others… <span id="claim-countdown">(${secondsLeft}s)</span>`;
+    }
+  } else {
+    banner = `Waiting for ${seatName(room,room.turnSeat)}…`;
+  }
+
+  return `
+  <div class="hand-dock">
+    <div class="turn-banner">${banner}</div>
+    ${meldsHtml?`<div class="my-melds">${meldsHtml}</div>`:''}
+    <div class="hand-row">${handHtml}</div>
+    <div class="action-bar">${actionBar}</div>
+  </div>`;
+}
+</script>
+<script>
+function renderScoreTable(room){
+  return `<table class="score-table"><thead><tr><th>Player</th><th>Points</th></tr></thead><tbody>
+    ${room.seats.map((s,i)=>`<tr><td>${s?escapeHtml(s.name):'—'}${room.dealerSeat===i?' 🀄':''}</td><td>${room.scores[i]}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+function renderHandEndModal(room){
+  const r = room.lastHandResult;
+  if(!r) return '';
+  const isHost = room.hostId===PROFILE.id;
+  let body = '';
+  if(r.draw){
+    body = `<p class="muted">The wall ran dry — nobody completed a hand. The deal stays with ${seatName(room,room.dealerSeat)}.</p>`;
+  } else if(r.popEye){
+    body = `<p>${seatName(room,r.winnerSeat)} collected all four Jokers for an instant <b>Pop-Eye</b> win! 🃏</p>`;
+  } else {
+    const handHtml = sortHand(r.hand).map(t=>tileNode(t,{})).join('');
+    const meldsHtml = (r.melds||[]).map(m=>meldNode(m)).join('');
+    body = `
+      <p><b>${seatName(room,r.winnerSeat)}</b> wins ${r.wonBy==='self'?'by self-draw 🌟':'off '+seatName(room,r.discarderSeat)+"'s discard"}!</p>
+      <div class="hand-row" style="justify-content:flex-start;">${handHtml}</div>
+      ${meldsHtml?`<div class="my-melds" style="justify-content:flex-start;">${meldsHtml}</div>`:''}
+      <p style="margin-top:8px;">${r.score.labels.map(l=>`<span class="bonus-tag">${l}</span>`).join('')}</p>
+      <p class="muted">+${r.score.points} pts${r.wonBy==='self'?' from each player (self-draw, doubled)':' ('+seatName(room,r.discarderSeat)+' pays double)'}.</p>
+    `;
+  }
+  return `<div class="modal-bg"><div class="modal">
+    <h2>🀄 Hand ${room.handNumber} result</h2>
+    ${body}
+    <h3 style="color:var(--gold);margin-top:16px;">Scoreboard</h3>
+    ${renderScoreTable(room)}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn" data-action="nextHand">Next hand ▶</button>
+      ${isHost?`<button class="btn secondary" data-action="endMatch">End match</button>`:''}
+    </div>
+  </div></div>`;
+}
+function renderMatchEndModal(room){
+  const isHost = room.hostId===PROFILE.id;
+  const ranked = room.seats.map((s,i)=>({name:s?s.name:'—',score:room.scores[i]})).sort((a,b)=>b.score-a.score);
+  return `<div class="modal-bg"><div class="modal">
+    <h2>🏮 Final scores</h2>
+    <table class="score-table"><thead><tr><th>#</th><th>Player</th><th>Points</th></tr></thead><tbody>
+      ${ranked.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${r.score}</td></tr>`).join('')}
+    </tbody></table>
+    <p class="muted" style="margin-top:10px;">Salamat for playing! Maligayang chismis sa susunod na laro.</p>
+    <div class="btn-row" style="margin-top:14px;">
+      ${isHost?`<button class="btn" data-action="backToLobby">Back to lobby</button>`:`<p class="muted">Waiting for the host…</p>`}
+    </div>
+  </div></div>`;
+}
+
+function renderHowTo(){
+  return `<div class="modal-bg"><div class="modal">
+    <button class="close-x" data-action="toggleHowTo">×</button>
+    <h2>🀄 How Sulit Mahjong works</h2>
+    <div class="howto-body">
+      <p>A cozy, simplified take on Filipino mahjong for four players (fill empty seats with bots if your barkada is short tonight).</p>
+      <h3>Goal</h3>
+      <p>Collect four sets (three-of-a-kind "pungs", four-of-a-kind "kongs", or three-in-a-row "chows") plus one pair, then declare Mahjong. Seven unique pairs is also a valid win.</p>
+      <h3>The pass</h3>
+      <p>At the start of every hand, everyone secretly picks 3 tiles to pass to the player on their right — a Filipino "goulash" touch. Choose tiles you don't need.</p>
+      <h3>Your turn</h3>
+      <p>Draw a tile, then discard one. If a discard completes your hand, or completes a pung/kong (anyone) or a chow (only from the player right before you), tap the matching button when it appears. Mahjong claims always win out over pung/kong, which win out over chow.</p>
+      <h3>Jokers</h3>
+      <p>Jokers stand in for any tile in a pung, kong, or chow — but never in the pair. Collect all four and you win instantly with a "Pop-Eye!"</p>
+      <h3>Scoring</h3>
+      <p>A normal win is worth 1 point from each opponent. Bonus doubles stack for Seven Pairs, an all-pungs hand, a one-suit flush, and any kongs declared. Self-drawn wins are paid double by everyone; discard wins are paid double by whoever discarded the tile.</p>
+      <p class="muted" style="margin-top:14px;">House note: this is a simplified, friend-table ruleset rather than a tournament-official one, and the game state is stored unencrypted so it can be shared online without a real server — please only share your room code with people you trust at the table.</p>
+    </div>
+  </div></div>`;
+}
+</script>
+<script>
+function renderGame(room){
+  const mySeat = mySeatIndex(room);
+  let dock = '';
+  if(room.phase==='pass') dock = renderPassDock(room, mySeat);
+  else dock = renderPlayDock(room, mySeat);
+
+  let overlay = '';
+  if(room.phase==='handEnd') overlay = renderHandEndModal(room);
+  if(room.phase==='matchEnd') overlay = renderMatchEndModal(room);
+
+  return `
+  <div class="screen" style="padding-bottom:0;">
+    <div class="title-row">
+      <span class="pill">🏮 ${room.code}</span>
+      <span class="muted">Hand ${room.handNumber}</span>
+      <button class="icon-btn" data-action="toggleHowTo" title="How to play">❓</button>
+    </div>
+    ${renderOpponentsRow(room, mySeat)}
+    <div class="table-wrap">
+      ${renderFelt(room)}
+    </div>
+  </div>
+  ${dock}
+  ${overlay}`;
+}
+</script>
+<script>
+/* ================= ACTIONS / EVENT HANDLING ================= */
+
+function showToast(msg){
+  const old = document.getElementById('toast');
+  if(old) old.remove();
+  const div = document.createElement('div');
+  div.id = 'toast'; div.className = 'toast'; div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(()=>{ const el=document.getElementById('toast'); if(el) el.remove(); }, 2600);
+}
+function showHomeError(msg){
+  const el = document.getElementById('homeError');
+  if(el) el.textContent = msg;
+}
+
+async function doAction(updateFn){
+  if(!STATE.roomCode) return null;
+  const r = await updateRoom(STATE.roomCode, updateFn);
+  if(r) STATE.room = r;
+  renderApp();
+  return r;
+}
+
+async function handleCreateRoom(){
+  const nameEl = document.getElementById('nameInput');
+  const name = (nameEl && nameEl.value.trim()) || 'Player';
+  PROFILE.name = name; await saveProfile();
+  const code = randomRoomCode();
+  const room = freshRoom(code, PROFILE.id);
+  await putRoom(room);
+  STATE.roomCode = code; STATE.screen = 'room'; STATE.room = room;
+  renderApp();
+  startPolling();
+}
+async function handleJoinRoom(){
+  const nameEl = document.getElementById('nameInput');
+  const codeEl = document.getElementById('joinCodeInput');
+  const name = (nameEl && nameEl.value.trim()) || 'Player';
+  const code = (codeEl && codeEl.value.trim().toUpperCase()) || '';
+  if(code.length!==4){ showHomeError('Enter the 4-letter room code your friend shared.'); return; }
+  PROFILE.name = name; await saveProfile();
+  const room = await getRoom(code);
+  if(!room){ showHomeError('No table found with that code — double check it with your friend.'); return; }
+  STATE.roomCode = code; STATE.screen = 'room'; STATE.room = room;
+  renderApp();
+  startPolling();
+}
+function handleLeaveRoom(){
+  stopPolling();
+  STATE.roomCode = null; STATE.room = null; STATE.screen = 'home';
+  STATE.selectedDiscardIdx = null; STATE.selectedPassIdx = [];
+  renderApp();
+}
+
+async function handleAppClick(e){
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.getAttribute('data-action');
+  const seat = el.getAttribute('data-seat')!=null ? Number(el.getAttribute('data-seat')) : null;
+  const idx = el.getAttribute('data-idx')!=null ? Number(el.getAttribute('data-idx')) : null;
+  const tile = el.getAttribute('data-tile');
+  const type = el.getAttribute('data-type');
+
+  switch(action){
+    case 'createRoom': await handleCreateRoom(); break;
+    case 'joinRoom': await handleJoinRoom(); break;
+    case 'toggleHowTo': STATE.showHowTo = !STATE.showHowTo; renderApp(); break;
+    case 'closeHowToBg': STATE.showHowTo = false; renderApp(); break;
+
+    case 'joinSeat': await doAction(d=>actionJoinSeat(d, seat, PROFILE)); break;
+    case 'addBot': await doAction(d=>actionAddBot(d, seat, PROFILE.id)); break;
+    case 'removeBot': await doAction(d=>actionRemoveBot(d, seat, PROFILE.id)); break;
+    case 'kickSeat': await doAction(d=>actionKickSeat(d, seat, PROFILE.id)); break;
+    case 'leaveSeat': await doAction(d=>actionLeaveSeat(d, PROFILE.id)); break;
+    case 'startMatch': await doAction(d=>actionStartMatch(d, PROFILE.id)); break;
+    case 'copyCode': {
+      const code = STATE.roomCode || '';
+      try{ await navigator.clipboard.writeText(code); showToast('Room code copied: '+code); }
+      catch(e2){ showToast('Room code: '+code); }
+      break;
+    }
+    case 'leaveRoom': handleLeaveRoom(); break;
+
+    case 'togglePassIdx': {
+      STATE.selectedPassIdx = STATE.selectedPassIdx || [];
+      const pos = STATE.selectedPassIdx.indexOf(idx);
+      if(pos>=0) STATE.selectedPassIdx.splice(pos,1);
+      else if(STATE.selectedPassIdx.length<3) STATE.selectedPassIdx.push(idx);
+      renderApp();
+      break;
+    }
+    case 'confirmPass': {
+      const mySeat = mySeatIndex(STATE.room);
+      const hand = sortHand(STATE.room.hands[mySeat]||[]);
+      const tiles = (STATE.selectedPassIdx||[]).map(i=>hand[i]);
+      if(tiles.length!==3) break;
+      STATE.selectedPassIdx = [];
+      await doAction(d=>actionSubmitPass(d, mySeat, tiles));
+      break;
+    }
+
+    case 'selectDiscard': STATE.selectedDiscardIdx = (STATE.selectedDiscardIdx===idx ? null : idx); renderApp(); break;
+    case 'drawTile': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDraw(d, mySeat)); break; }
+    case 'confirmDiscard': {
+      const mySeat = mySeatIndex(STATE.room);
+      const hand = sortHand(STATE.room.hands[mySeat]||[]);
+      const t = hand[STATE.selectedDiscardIdx];
+      if(t==null) break;
+      STATE.selectedDiscardIdx = null;
+      await doAction(d=>actionDiscard(d, mySeat, t));
+      break;
+    }
+    case 'declareWin': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDeclareSelfWin(d, mySeat)); break; }
+    case 'declarePopEye': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDeclarePopEye(d, mySeat)); break; }
+    case 'declareKong': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDeclareKongFromHand(d, mySeat, tile)); break; }
+    case 'claim': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionClaim(d, mySeat, type)); break; }
+
+    case 'nextHand': await doAction(d=>actionNextHand(d)); break;
+    case 'endMatch': await doAction(d=>actionEndMatch(d)); break;
+    case 'backToLobby': await doAction(d=>actionBackToLobby(d)); break;
+  }
+}
+</script>
+<script>
+/* ================= BOTS + POLLING ================= */
+let pollHandle = null;
+let countdownHandle = null;
+
+async function maybeDriveBots(room){
+  if(!room) return null;
+  if(room.phase==='pass'){
+    for(let s=0;s<4;s++){
+      if(room.seats[s] && room.seats[s].isBot && (!room.passPhase || !room.passPhase.submitted[s])){
+        return await updateRoom(room.code, draft=>{
+          if(draft.phase!=='pass' || !draft.passPhase || draft.passPhase.submitted[s]) return false;
+          const tiles = botChoosePassTiles(draft.hands[s]);
+          return actionSubmitPass(draft, s, tiles);
+        });
+      }
+    }
+  } else if(room.phase==='play'){
+    const seat = room.turnSeat;
+    if(room.turnPhase==='draw' && room.seats[seat] && room.seats[seat].isBot){
+      return await updateRoom(room.code, draft=>actionDraw(draft, seat));
+    }
+    if(room.turnPhase==='discard' && room.seats[seat] && room.seats[seat].isBot){
+      return await updateRoom(room.code, draft=>{
+        if(draft.turnSeat!==seat || draft.turnPhase!=='discard') return false;
+        const check = isWinningShape(draft.hands[seat], draft.melds[seat].length);
+        if(check.ok) return actionDeclareSelfWin(draft, seat);
+        if(jokerCountIn(draft.hands[seat])>=4) return actionDeclarePopEye(draft, seat);
+        const t = botChooseDiscard(draft.hands[seat]);
+        return actionDiscard(draft, seat, t);
+      });
+    }
+    if(room.turnPhase==='claim' && room.pendingDiscard){
+      for(const sStr of Object.keys(room.pendingDiscard.eligible)){
+        const s = Number(sStr);
+        if(room.seats[s] && room.seats[s].isBot && room.pendingDiscard.responses[s]===undefined){
+          return await updateRoom(room.code, draft=>{
+            if(!draft.pendingDiscard || draft.pendingDiscard.responses[s]!==undefined) return false;
+            const types = draft.pendingDiscard.eligible[s] || [];
+            return actionClaim(draft, s, botClaimDecision(types));
+          });
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function tickBackgroundWork(room){
+  if(room.phase==='play' && room.pendingDiscard && Date.now() >= room.pendingDiscard.deadline){
+    const r = await updateRoom(room.code, draft=>actionForceResolveClaim(draft));
+    if(r) return r;
+  }
+  return await maybeDriveBots(room);
+}
+
+async function pollTick(){
+  if(!STATE.roomCode) return;
+  const r = await getRoom(STATE.roomCode);
+  if(!r) return;
+  STATE.room = r;
+  renderApp();
+  const changed = await tickBackgroundWork(r);
+  if(changed){ STATE.room = changed; renderApp(); }
+}
+
+function startPolling(){
+  stopPolling();
+  pollTick();
+  pollHandle = setInterval(pollTick, POLL_MS);
+  countdownHandle = setInterval(()=>{
+    const el = document.getElementById('claim-countdown');
+    const pd = STATE.room && STATE.room.pendingDiscard;
+    if(el && pd){
+      const s = Math.max(0, Math.ceil((pd.deadline - Date.now())/1000));
+      el.textContent = '('+s+'s)';
+    }
+  }, 500);
+}
+function stopPolling(){
+  if(pollHandle){ clearInterval(pollHandle); pollHandle=null; }
+  if(countdownHandle){ clearInterval(countdownHandle); countdownHandle=null; }
+}
+
+/* ================= INIT ================= */
+async function init(){
+  await loadProfile();
+  document.addEventListener('click', handleAppClick);
+  renderApp();
+}
+init();
+</script>
+</body>
+</html>
