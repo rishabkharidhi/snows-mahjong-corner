@@ -18,7 +18,7 @@ const DEAD_WALL_SIZE = 14; // tiles held back at the back of the wall; when the 
    KV backend (see worker.js + DEPLOY.md) so everyone hitting this page,
    from anywhere, shares one source of truth. Set WORKER_URL below to the
    URL you get after deploying the Worker. */
-const WORKER_URL = "https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev";
+const WORKER_URL = "https://snows-mahjong-corner.rishab-kharidhi.workers.dev";
 
 async function storageGet(key, shared){
   if(!shared){
