@@ -10,7 +10,7 @@ const BIG_CHIP = 1.0;   // $1 — winning a hand
 
 /* Personal data -> localStorage. Shared room data -> Cloudflare Worker.
    Set WORKER_URL to your deployed Worker's URL (see DEPLOY.md / worker.js). */
-const WORKER_URL = "https://snows-mahjong-corner.rishab-kharidhi.workers.dev/";
+const WORKER_URL = "https://snows-mahjong-api.rishab-kharidhi.workers.dev";
 
 async function storageGet(key, shared){
   if(!shared){
