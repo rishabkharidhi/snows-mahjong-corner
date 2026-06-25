@@ -26,16 +26,7 @@ function dealNewHand(room) {
   for (let seat = 0; seat < 4; seat++) { room.hands[seat] = room.deck.slice(pos, pos + 16); pos += 16; }
   room.deckPos = pos;
   room.backPos = room.deck.length - 1;
-
-  // Reveal this hand's joker tile: the next suited tile from the front of the
-  // remaining wall (skipping over any flower-category tile, same as the dice-count
-  // reveal in the physical game). The revealed tile is set aside entirely — it was
-  // only shown, never dealt into anyone's hand.
-  let jokerIdx = room.deckPos;
-  while (isFlowerCategory(room.deck[jokerIdx])) jokerIdx++;
-  room.jokerTile = room.deck[jokerIdx];
-  room.deck.splice(jokerIdx, 1);
-  room.backPos = room.deck.length - 1;
+  room.jokerTile = null; // no wildcard tile in this ruleset
 
   room.melds = [[], [], [], []];
   room.flowers = [[], [], [], []];
@@ -67,7 +58,7 @@ function dealNewHand(room) {
   room.phase = 'play';
   room.turnSeat = room.dealerSeat;
   room.turnPhase = 'discard';
-  pushLog(room, 'Hand ' + room.handNumber + ' dealt — ' + seatName(room, room.dealerSeat) + ' is dealer. Joker: ' + room.jokerTile);
+  pushLog(room, 'Hand ' + room.handNumber + ' dealt — ' + seatName(room, room.dealerSeat) + ' is dealer.');
 }
 
 function endHandDraw(room) {
@@ -160,7 +151,7 @@ function actionDiscard(room, seat, tile) {
   } else {
     advanceTurnAfterDiscard(room, seat);
   }
-  pushLog(room, seatName(room, seat) + ' discarded ' + tile + '.');
+  pushLog(room, seatName(room, seat) + ' discarded ' + tileLabel(tile) + '.');
   return true;
 }
 function advanceTurnAfterDiscard(room, fromSeat) {
@@ -241,7 +232,7 @@ function applyMeldClaim(room, seat, type, tile, fromSeat) {
   }
   room.turnSeat = seat;
   room.turnPhase = 'discard';
-  pushLog(room, seatName(room, seat) + ' called ' + type + ' on ' + tile + '.');
+  pushLog(room, seatName(room, seat) + ' called ' + type.charAt(0).toUpperCase()+type.slice(1) + ' on ' + tileLabel(tile) + '.');
   if (type === 'kong') {
     if (!wallExhausted(room)) {
       const repl = drawBack(room);

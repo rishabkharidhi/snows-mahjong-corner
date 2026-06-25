@@ -49,8 +49,7 @@ function tileLabel(t){
   if(FLOWERS.includes(t)) return FLOWER_NAME[t];
   return SUIT_NAME[suitOf(t)]+' '+rankOf(t);
 }
-function tileBlurb(t, jokerTile){
-  if(t===jokerTile) return "This hand's Joker — wild, stands in for any tile in a pung, kong, or chow (never the pair).";
+function tileBlurb(t){
   if(WINDS.includes(t)||DRAGONS.includes(t)) return 'Flower tile (honor) — collected for bonus chips, never used in melds.';
   if(FLOWERS.includes(t)) return 'Flower tile — collected for bonus chips, never used in melds.';
   return SUIT_NAME[suitOf(t)]+' suit, number '+rankOf(t)+' — can form runs (chows) with neighboring numbers in the same suit.';

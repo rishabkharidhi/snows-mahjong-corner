@@ -13,13 +13,42 @@ let STATE = {
   room: null,
   selectedDiscardIdx: null,
   showHowTo: false,
+  showLog: false,
   busy: false,
   lastPhaseSeen: null,
   seenChipEventIds: new Set(),
   activeToasts: [],
   shuffleQuip: '',
+  handOrder: [],
+  dragState: null,
+  dragEndedAt: 0,
+  latestDraw: null,
+  suppressPollRender: false,
   shuffleUntil: 0,
 };
+
+// Reconciles STATE.handOrder against the player's actual current hand: keeps the
+// existing custom arrangement for tiles still present, drops tiles no longer held
+// (discarded/melded), and appends any newly-drawn tiles (sorted) at the end. This
+// is what lets manual rearranging survive normal gameplay (draws/discards) without
+// snapping back to sorted order every time.
+function getDisplayHand(actualHand){
+  const actualCounts = countTiles(actualHand);
+  const usedCounts = {};
+  const kept = [];
+  for(const t of STATE.handOrder){
+    const c = usedCounts[t]||0;
+    if(c < (actualCounts[t]||0)){ kept.push(t); usedCounts[t]=c+1; }
+  }
+  const remaining = [];
+  for(const t of Object.keys(actualCounts)){
+    let have = usedCounts[t]||0;
+    while(have < actualCounts[t]){ remaining.push(t); have++; }
+  }
+  const newOrder = kept.concat(sortHand(remaining));
+  STATE.handOrder = newOrder;
+  return newOrder;
+}
 
 function tileNode(tile, opts){
   opts = opts || {};
@@ -28,6 +57,7 @@ function tileNode(tile, opts){
   if(opts.back) cls.push('back');
   if(opts.clickable) cls.push('clickable');
   if(opts.selected) cls.push('selected');
+  if(opts.justDrawn) cls.push('just-drawn');
   if(!opts.back){
     if(opts.wild) cls.push('joker');
     else if(isFlowerCategory(tile)){
@@ -37,9 +67,10 @@ function tileNode(tile, opts){
     else cls.push('suit-'+suitOf(tile));
   }
   const glyph = opts.back ? '' : (GLYPH[tile]||'?');
+  const numBadge = (!opts.back && isSuited(tile)) ? `<span class="tile-num">${rankOf(tile)}</span>` : '';
   let dataAttrs = opts.back ? '' : ` data-tile="${tile}"`;
   if(opts.action) dataAttrs += ` data-action="${opts.action}"${opts.extra||''}`;
-  return `<div class="${cls.join(' ')}" title="${opts.back?'':tileLabel(tile)}"${dataAttrs}>${glyph}</div>`;
+  return `<div class="${cls.join(' ')}" title="${opts.back?'':tileLabel(tile)}"${dataAttrs}>${numBadge}${glyph}</div>`;
 }
 function meldNode(meld, jokerTile){
   return `<div class="meld-tiles">${meld.tiles.map(t=>tileNode(t,{wild:t===jokerTile})).join('')}</div>`;
@@ -102,6 +133,7 @@ function renderChipToasts(){
 }
 
 function renderApp(){
+  if(STATE.dragState) return; // never rebuild the DOM mid-drag — would yank the dragged tile out from under the pointer
   const app = document.getElementById('app');
 
   if(STATE.room){
@@ -149,16 +181,16 @@ function renderHome(){
     <div class="card">
       <label>Start a new table</label>
       <p class="muted" style="margin-top:-4px;">You'll get a 4-letter room code to share with friends.</p>
-      <button class="btn" data-action="createRoom" style="width:100%;margin-top:6px;">🏮 Create a room</button>
+      <button class="btn" data-action="createRoom" style="width:100%;margin-top:6px;" type="button">🏮 Create a room</button>
     </div>
     <div class="card">
       <label for="joinCodeInput">Join a room</label>
       <input id="joinCodeInput" type="text" maxlength="4" placeholder="Room code, e.g. ABCD" style="text-transform:uppercase;letter-spacing:.15em;">
-      <button class="btn secondary" data-action="joinRoom" style="width:100%;margin-top:8px;">🚪 Join</button>
+      <button class="btn secondary" data-action="joinRoom" style="width:100%;margin-top:8px;" type="button">🚪 Join</button>
     </div>
     <p id="homeError" class="muted center" style="color:#e08a6f;min-height:18px;"></p>
     <p class="muted center" style="margin-top:-4px;">Games save automatically — close this anytime and reopen the same link to pick up right where you left off.</p>
-    <p class="center"><button class="linkish" data-action="toggleHowTo">How does this work? / House rules</button></p>
+    <p class="center"><button class="linkish" data-action="toggleHowTo" type="button">How does this work? / House rules</button></p>
   </div>`;
 }
 function renderLobby(room){
@@ -171,8 +203,8 @@ function renderLobby(room){
         <span class="seat-wind">${windLabel[0]}</span>
         <div class="seat-name muted">Open seat</div>
         <div class="btn-row">
-          <button class="btn jade" style="padding:6px 10px;font-size:.8rem;" data-action="joinSeat" data-seat="${i}">Sit here</button>
-          ${isHost?`<button class="btn secondary" style="padding:6px 10px;font-size:.8rem;" data-action="addBot" data-seat="${i}">+ Bot</button>`:''}
+          <button class="btn jade" style="padding:6px 10px;font-size:.8rem;" data-action="joinSeat" data-seat="${i}" type="button">Sit here</button>
+          ${isHost?`<button class="btn secondary" style="padding:6px 10px;font-size:.8rem;" data-action="addBot" data-seat="${i}" type="button">+ Bot</button>`:''}
         </div>
       </div>`;
     }
@@ -182,9 +214,9 @@ function renderLobby(room){
       <div class="seat-name">${escapeHtml(s.name)}${s.isBot?' 🤖':''}${mine?' (you)':''}</div>
       <div class="seat-tag">${windLabel} ${room.hostId===s.id?'· Host':''}</div>
       <div class="btn-row">
-        ${mine?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="leaveSeat">Leave</button>`:''}
-        ${(isHost && s.isBot)?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="removeBot" data-seat="${i}">Remove bot</button>`:''}
-        ${(isHost && !mine && !s.isBot)?`<button class="btn ember" style="padding:5px 9px;font-size:.75rem;" data-action="kickSeat" data-seat="${i}">Kick</button>`:''}
+        ${mine?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="leaveSeat" type="button">Leave</button>`:''}
+        ${(isHost && s.isBot)?`<button class="btn secondary" style="padding:5px 9px;font-size:.75rem;" data-action="removeBot" data-seat="${i}" type="button">Remove bot</button>`:''}
+        ${(isHost && !mine && !s.isBot)?`<button class="btn ember" style="padding:5px 9px;font-size:.75rem;" data-action="kickSeat" data-seat="${i}" type="button">Kick</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -194,17 +226,17 @@ function renderLobby(room){
   <div class="screen">
     <div class="title-row">
       <h1 class="brand" style="font-size:1.5rem;margin:0;">🏮 Room ${room.code}</h1>
-      <button class="icon-btn" data-action="copyCode" title="Copy room code">📋</button>
+      <button class="icon-btn" data-action="copyCode" title="Copy room code" type="button">📋</button>
     </div>
     <p class="muted">Share this code so your friends can join: <span class="pill">${room.code}</span></p>
     <div class="seat-grid">${seatsHtml}</div>
     <div class="btn-row" style="margin-top:6px;">
-      ${isHost?`<button class="btn" style="flex:1;" data-action="startMatch" ${filled?'':'disabled'}>🀄 Start the game</button>`:`<p class="muted">Waiting for the host to start…</p>`}
+      ${isHost?`<button class="btn" style="flex:1;" data-action="startMatch" ${filled?'':'disabled'} type="button">🀄 Start the game</button>`:`<p class="muted">Waiting for the host to start…</p>`}
     </div>
     ${!filled?'<p class="muted center" style="margin-top:6px;">Fill all four seats (friends or bots) to start.</p>':''}
     <div class="btn-row" style="margin-top:10px;">
-      <button class="btn secondary" data-action="leaveRoom">⟵ Leave room</button>
-      <button class="linkish" data-action="toggleHowTo">How to play</button>
+      <button class="btn secondary" data-action="leaveRoom" type="button">⟵ Leave room</button>
+      <button class="linkish" data-action="toggleHowTo" type="button">How to play</button>
     </div>
   </div>`;
 }
@@ -234,15 +266,12 @@ function renderFelt(room){
   const lastIdx = discards.length-1;
   const discardHtml = discards.map((d,i)=>{
     const ring = i===lastIdx ? 'last-discard-ring' : '';
-    return `<span class="${ring}">${tileNode(d.tile,{wild:d.tile===room.jokerTile})}</span>`;
+    return `<span class="${ring}">${tileNode(d.tile,{})}</span>`;
   }).join('');
   return `<div class="felt">
     <div class="wall-info">🀫 Wall: ${wallLeft}</div>
     <div class="dealer-info">🀄 ${seatName(room,room.dealerSeat)}</div>
     ${discards.length? `<div class="discard-grid">${discardHtml}</div>` : `<p class="muted center">The table is set. First discard coming up…</p>`}
-    <div class="joker-badge" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);">
-      ${GLYPH[room.jokerTile]} Wild this hand: ${tileLabel(room.jokerTile)}
-    </div>
   </div>`;
 }
 
@@ -250,7 +279,7 @@ function renderPlayDock(room, mySeat){
   if(mySeat<0){
     return `<div class="hand-dock"><p class="muted center">You're spectating this table.</p></div>`;
   }
-  const hand = sortHand(room.hands[mySeat]||[]);
+  const hand = getDisplayHand(room.hands[mySeat]||[]);
   const melds = room.melds[mySeat]||[];
   const myTurn = room.turnSeat===mySeat;
   const pd = room.pendingDiscard;
@@ -261,23 +290,25 @@ function renderPlayDock(room, mySeat){
     const sel = STATE.selectedDiscardIdx === idx;
     const clickable = myTurn && room.turnPhase==='discard';
     const wild = t===room.jokerTile;
-    return `<div class="tile ${clickable?'clickable':''} ${sel?'selected':''} ${wild?'joker':(isFlowerCategory(t)?('flowercat '+(DRAGONS.includes(t)?'dragon-'+t:'')):('suit-'+suitOf(t)))}"
-      data-tile="${t}" ${clickable?`data-action="selectDiscard" data-idx="${idx}"`:''} title="${tileLabel(t)}">${GLYPH[t]}</div>`;
+    const justDrawn = myTurn && room.turnPhase==='discard' && STATE.latestDraw && STATE.latestDraw.idx===idx && t===STATE.latestDraw.tile;
+    const numBadge = isSuited(t) ? `<span class="tile-num">${rankOf(t)}</span>` : '';
+    return `<div class="tile ${clickable?'clickable':''} ${sel?'selected':''} ${justDrawn?'just-drawn':''} ${wild?'joker':(isFlowerCategory(t)?('flowercat '+(DRAGONS.includes(t)?'dragon-'+t:'')):('suit-'+suitOf(t)))}"
+      data-tile="${t}" data-hand-idx="${idx}" ${clickable?`data-action="selectDiscard" data-idx="${idx}"`:''} title="${tileLabel(t)}">${numBadge}${GLYPH[t]}</div>`;
   }).join('');
 
   let actionBar = '';
   let banner = '';
   if(myTurn && room.turnPhase==='draw'){
     banner = `Your turn — draw a tile.`;
-    actionBar = `<button class="btn" data-action="drawTile">🀫 Draw tile</button>`;
+    actionBar = `<button class="btn" data-action="drawTile" type="button">🀫 Draw tile</button>`;
   } else if(myTurn && room.turnPhase==='discard'){
     const canWin = isWinningShape(room.hands[mySeat], melds.length, room.jokerTile).ok;
     const kongs = myAvailableConcealedKongs(room, mySeat);
     banner = canWin ? `You can declare Mahjong! 🎉` : `Your turn — pick a tile to discard.`;
     actionBar = `
-      ${canWin?`<button class="btn jade" data-action="declareWin">🀄 Declare Mahjong</button>`:''}
-      ${kongs.map(t=>`<button class="btn secondary" data-action="declareKong" data-tile="${t}">Kong ${tileLabel(t)}</button>`).join('')}
-      <button class="btn ember" data-action="confirmDiscard" ${STATE.selectedDiscardIdx==null?'disabled':''}>Discard</button>`;
+      ${canWin?`<button class="btn jade" data-action="declareWin" type="button">🀄 Declare Mahjong</button>`:''}
+      ${kongs.map(t=>`<button class="btn secondary" data-action="declareKong" data-tile="${t}" type="button">Kong ${tileLabel(t)}</button>`).join('')}
+      <button class="btn ember" data-action="confirmDiscard" ${STATE.selectedDiscardIdx==null?'disabled':''} type="button">Discard</button>`;
   } else if(room.turnPhase==='claim' && pd){
     const secondsLeft = Math.max(0, Math.ceil((pd.deadline-Date.now())/1000));
     if(iCanClaim){
@@ -286,8 +317,8 @@ function renderPlayDock(room, mySeat){
       actionBar = types.map(ty=>{
         const label = ty==='win'?'🀄 Mahjong!':ty.charAt(0).toUpperCase()+ty.slice(1);
         const cls = ty==='win'?'jade':'secondary';
-        return `<button class="btn ${cls}" data-action="claim" data-type="${ty}">${label}</button>`;
-      }).join('') + `<button class="btn secondary" data-action="claim" data-type="pass">Pass</button>`;
+        return `<button class="btn ${cls}" data-action="claim" data-type="${ty}" type="button">${label}</button>`;
+      }).join('') + `<button class="btn secondary" data-action="claim" data-type="pass" type="button">Pass</button>`;
     } else {
       banner = `${seatName(room,pd.seat)} discarded ${tileLabel(pd.tile)} — waiting on others… <span id="claim-countdown">(${secondsLeft}s)</span>`;
     }
@@ -300,7 +331,10 @@ function renderPlayDock(room, mySeat){
     <div class="turn-banner">${banner}</div>
     ${meldsHtml?`<div class="my-melds">${meldsHtml}</div>`:''}
     ${room.flowers[mySeat] && room.flowers[mySeat].length ? `<div class="my-flowers">${room.flowers[mySeat].map(f=>tileNode(f,{})).join('')}</div>` : ''}
-    <div class="hand-row">${handHtml}</div>
+    <div class="hand-row-wrap">
+      <div class="hand-row">${handHtml}</div>
+      <button class="icon-btn" data-action="sortHand" type="button" title="Sort hand">⇅</button>
+    </div>
     <div class="action-bar">${actionBar}</div>
   </div>`;
 }
@@ -335,8 +369,8 @@ function renderHandEndModal(room){
     <h3 style="color:var(--gold);margin-top:16px;">Scoreboard</h3>
     ${renderScoreTable(room)}
     <div class="btn-row" style="margin-top:14px;">
-      <button class="btn" data-action="nextHand">Next hand ▶</button>
-      ${isHost?`<button class="btn secondary" data-action="endMatch">End match</button>`:''}
+      <button class="btn" data-action="nextHand" type="button">Next hand ▶</button>
+      ${isHost?`<button class="btn secondary" data-action="endMatch" type="button">End match</button>`:''}
     </div>
   </div></div>`;
 }
@@ -350,14 +384,25 @@ function renderMatchEndModal(room){
     </tbody></table>
     <p class="muted" style="margin-top:10px;">Salamat for playing! Maligayang chismis sa susunod na laro.</p>
     <div class="btn-row" style="margin-top:14px;">
-      ${isHost?`<button class="btn" data-action="backToLobby">Back to lobby</button>`:`<p class="muted">Waiting for the host…</p>`}
+      ${isHost?`<button class="btn" data-action="backToLobby" type="button">Back to lobby</button>`:`<p class="muted">Waiting for the host…</p>`}
+    </div>
+  </div></div>`;
+}
+
+function renderLogPanel(room){
+  const entries = room.log.slice().reverse();
+  return `<div class="modal-bg"><div class="modal">
+    <button class="close-x" data-action="toggleLog" type="button">×</button>
+    <h2>📜 Table activity</h2>
+    <div class="howto-body">
+      ${entries.length ? `<ul class="log-list">${entries.map(l=>`<li>${escapeHtml(l)}</li>`).join('')}</ul>` : `<p class="muted">Nothing's happened yet.</p>`}
     </div>
   </div></div>`;
 }
 
 function renderHowTo(){
   return `<div class="modal-bg"><div class="modal">
-    <button class="close-x" data-action="toggleHowTo">×</button>
+    <button class="close-x" data-action="toggleHowTo" type="button">×</button>
     <h2>🀄 How Snows Mahjong Corner works</h2>
     <div class="howto-body">
       <p>Authentic 16-tile Filipino mahjong for four players (fill empty seats with bots if your barkada is short tonight).</p>
@@ -365,8 +410,6 @@ function renderHowTo(){
       <p>Everyone gets 16 tiles. The dealer draws a 17th and discards first. Play moves to the right (counter-clockwise).</p>
       <h3>Flowers</h3>
       <p>Winds, dragons, and the traditional flower/season tiles are all "flowers" here — bonus tiles, never used in melds. Draw one and it's immediately set aside in your flower corner, then you draw a replacement from the back of the wall. Collect 13 flowers in one hand and you get a small chip from each opponent on the spot. Win a hand with zero flowers drawn and you get a bonus too.</p>
-      <h3>The Joker</h3>
-      <p>At the start of each hand, one tile type is revealed as that hand's Joker (shown on the table) — every copy of it is wild, standing in for any tile in a pung, kong, or chow, but never the pair.</p>
       <h3>Your turn</h3>
       <p>Draw a tile (flowers auto-resolve), then discard one. Mahjong claims always beat pung/kong, which beat chow. Pung and kong can be claimed off anyone's discard; chow only off the discard of the player to your right.</p>
       <h3>Winning</h3>
@@ -384,6 +427,7 @@ function renderGame(room){
   let overlay = '';
   if(room.phase==='handEnd') overlay = renderHandEndModal(room);
   if(room.phase==='matchEnd') overlay = renderMatchEndModal(room);
+  if(STATE.showLog) overlay += renderLogPanel(room);
 
   return `
   <div class="screen" style="padding-bottom:0;">
@@ -391,7 +435,8 @@ function renderGame(room){
       <span class="pill">🏮 ${room.code}</span>
       <span class="muted">Hand ${room.handNumber}</span>
       ${mySeat>=0?`<span class="pill ${moneyClass(room.chips[mySeat])}" style="background:rgba(0,0,0,0.28);">${fmtMoney(room.chips[mySeat])}</span>`:''}
-      <button class="icon-btn" data-action="toggleHowTo" title="How to play">❓</button>
+      <button class="icon-btn" data-action="toggleLog" title="Activity log" type="button">📜</button>
+      <button class="icon-btn" data-action="toggleHowTo" title="How to play" type="button">❓</button>
     </div>
     ${renderChipToasts()}
     ${renderOpponentsRow(room, mySeat)}

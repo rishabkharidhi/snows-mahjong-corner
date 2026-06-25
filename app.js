@@ -53,6 +53,8 @@ async function handleLeaveRoom(){
   stopPolling();
   STATE.roomCode = null; STATE.room = null; STATE.screen = 'home';
   STATE.selectedDiscardIdx = null;
+  STATE.handOrder = [];
+  STATE.latestDraw = null;
   PROFILE.lastRoomCode = null;
   await saveProfile();
   renderApp();
@@ -61,15 +63,16 @@ async function handleLeaveRoom(){
 function updateTileInfoBar(tileId){
   const bar = document.getElementById('tile-info-bar');
   if(!bar || !tileId) return;
-  const jokerTile = STATE.room ? STATE.room.jokerTile : null;
-  bar.innerHTML = `<span class="ti-name">${tileLabel(tileId)}</span><span class="ti-blurb">${tileBlurb(tileId, jokerTile)}</span>`;
+  bar.innerHTML = `<span class="ti-name">${tileLabel(tileId)}</span><span class="ti-blurb">${tileBlurb(tileId)}</span>`;
 }
 
 async function handleAppClick(e){
+  if(Date.now() - STATE.dragEndedAt < 300) return;
   const tileEl = e.target.closest('.tile[data-tile]');
   if(tileEl) updateTileInfoBar(tileEl.getAttribute('data-tile'));
 
   const el = e.target.closest('[data-action]');
+  if(el) e.preventDefault();
   if(!el) return;
   const action = el.getAttribute('data-action');
   const seat = el.getAttribute('data-seat')!=null ? Number(el.getAttribute('data-seat')) : null;
@@ -81,6 +84,7 @@ async function handleAppClick(e){
     case 'createRoom': await handleCreateRoom(); break;
     case 'joinRoom': await handleJoinRoom(); break;
     case 'toggleHowTo': STATE.showHowTo = !STATE.showHowTo; renderApp(); break;
+    case 'toggleLog': STATE.showLog = !STATE.showLog; renderApp(); break;
 
     case 'joinSeat': await doAction(d=>actionJoinSeat(d, seat, PROFILE)); break;
     case 'addBot': await doAction(d=>actionAddBot(d, seat, PROFILE.id)); break;
@@ -96,19 +100,30 @@ async function handleAppClick(e){
     }
     case 'leaveRoom': await handleLeaveRoom(); break;
 
+    case 'sortHand': STATE.handOrder = []; renderApp(); break;
     case 'selectDiscard': STATE.selectedDiscardIdx = (STATE.selectedDiscardIdx===idx ? null : idx); renderApp(); break;
-    case 'drawTile': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDraw(d, mySeat)); break; }
+    case 'drawTile': {
+      const mySeat=mySeatIndex(STATE.room);
+      const r = await doAction(d=>actionDraw(d, mySeat));
+      if(r){
+        const display = STATE.handOrder;
+        STATE.latestDraw = display.length ? { tile: display[display.length-1], idx: display.length-1 } : null;
+        renderApp();
+      }
+      break;
+    }
     case 'confirmDiscard': {
       const mySeat = mySeatIndex(STATE.room);
-      const hand = sortHand(STATE.room.hands[mySeat]||[]);
+      const hand = STATE.handOrder;
       const t = hand[STATE.selectedDiscardIdx];
       if(t==null) break;
       STATE.selectedDiscardIdx = null;
+      STATE.latestDraw = null;
       await doAction(d=>actionDiscard(d, mySeat, t));
       break;
     }
-    case 'declareWin': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDeclareSelfWin(d, mySeat)); break; }
-    case 'declareKong': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionDeclareKongFromHand(d, mySeat, tile)); break; }
+    case 'declareWin': { const mySeat=mySeatIndex(STATE.room); STATE.latestDraw=null; await doAction(d=>actionDeclareSelfWin(d, mySeat)); break; }
+    case 'declareKong': { const mySeat=mySeatIndex(STATE.room); STATE.latestDraw=null; await doAction(d=>actionDeclareKongFromHand(d, mySeat, tile)); break; }
     case 'claim': { const mySeat=mySeatIndex(STATE.room); await doAction(d=>actionClaim(d, mySeat, type)); break; }
 
     case 'nextHand': await doAction(d=>actionNextHand(d)); break;
@@ -188,6 +203,70 @@ function stopPolling(){
 }
 
 /* ================= INIT ================= */
+function setupHandDrag(){
+  let startRects = null;
+
+  document.addEventListener('pointerdown', (e)=>{
+    const tileEl = e.target.closest('.hand-row .tile[data-hand-idx]');
+    if(!tileEl) return;
+    const idx = Number(tileEl.getAttribute('data-hand-idx'));
+    if(isNaN(idx)) return;
+    const row = tileEl.closest('.hand-row');
+    const allTiles = Array.from(row.querySelectorAll('.tile[data-hand-idx]'));
+    startRects = allTiles.map(el=>({ idx:Number(el.getAttribute('data-hand-idx')), rect: el.getBoundingClientRect() }));
+    STATE.dragState = { idx, tileEl, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved:false };
+    try{ tileEl.setPointerCapture(e.pointerId); }catch(err){}
+  });
+
+  document.addEventListener('pointermove', (e)=>{
+    const ds = STATE.dragState;
+    if(!ds || ds.pointerId!==e.pointerId) return;
+    const dx = e.clientX - ds.startX, dy = e.clientY - ds.startY;
+    if(!ds.moved && (Math.abs(dx)>6 || Math.abs(dy)>6)) ds.moved = true;
+    if(ds.moved){
+      ds.tileEl.style.position='relative';
+      ds.tileEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
+      ds.tileEl.classList.add('dragging');
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener('pointerup', (e)=>{
+    const ds = STATE.dragState;
+    if(!ds || ds.pointerId!==e.pointerId) return;
+    STATE.dragState = null;
+    ds.tileEl.style.transform = '';
+    ds.tileEl.style.position = '';
+    ds.tileEl.classList.remove('dragging');
+    try{ ds.tileEl.releasePointerCapture(e.pointerId); }catch(err){}
+    if(ds.moved && startRects){
+      const others = startRects.filter(r=>r.idx!==ds.idx);
+      let target = null, bestDist = Infinity;
+      for(const r of others){
+        const cx = r.rect.left + r.rect.width/2;
+        const cy = r.rect.top + r.rect.height/2;
+        const dist = Math.hypot(e.clientX-cx, e.clientY-cy);
+        if(dist<bestDist){ bestDist=dist; target=r; }
+      }
+      if(target){
+        const hand = STATE.handOrder.slice();
+        const fromIdx = ds.idx;
+        const movedTile = hand[fromIdx];
+        hand.splice(fromIdx,1);
+        let toIdx = target.idx;
+        if(toIdx>fromIdx) toIdx--;
+        const cx = target.rect.left + target.rect.width/2;
+        if(e.clientX > cx) toIdx++;
+        hand.splice(toIdx,0,movedTile);
+        STATE.handOrder = hand;
+      }
+      STATE.dragEndedAt = Date.now();
+    }
+    startRects = null;
+    renderApp();
+  });
+}
+
 async function init(){
   await loadProfile();
   document.addEventListener('click', handleAppClick);
@@ -195,6 +274,7 @@ async function init(){
     const tileEl = e.target.closest('.tile[data-tile]');
     if(tileEl) updateTileInfoBar(tileEl.getAttribute('data-tile'));
   });
+  setupHandDrag();
   if(PROFILE.lastRoomCode){
     const room = await getRoom(PROFILE.lastRoomCode);
     if(room){
